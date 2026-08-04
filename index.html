@@ -68,6 +68,20 @@
                         Build Plate
                     </button>
                 </div>
+                <div class="flex items-center sm:hidden">
+                    <button onclick="toggleMobileMenu()" aria-label="Open menu" class="p-2 -mr-2">
+                        <i data-lucide="menu" class="h-6 w-6"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div id="mobile-menu" class="sm:hidden hidden border-t border-gray-200 bg-white">
+            <div class="px-4 py-4 flex flex-col uppercase tracking-wider text-xs font-bold">
+                <button onclick="switchTab('home')" class="text-left py-3 border-b border-gray-100">Home</button>
+                <button onclick="switchTab('services')" class="text-left py-3 border-b border-gray-100">Services</button>
+                <button onclick="switchTab('menu')" class="text-left py-3 border-b border-gray-100">Menu</button>
+                <button onclick="switchTab('faq')" class="text-left py-3 border-b border-gray-100">FAQ</button>
+                <button onclick="switchTab('builder')" class="bg-black hover:bg-gray-800 text-white px-4 py-3 mt-3 text-center transition-colors">Build Your Plate</button>
             </div>
         </div>
     </nav>
@@ -163,7 +177,7 @@
 
         <div id="view-faq" class="view-section fade-in py-24 max-w-4xl mx-auto px-4">
             <div class="text-center mb-20">
-                <h1 class="text-5xl md:text-7xl font-bold text-black uppercase tracking-widest leading-tight">
+                <h1 class="text-4xl sm:text-5xl md:text-7xl font-bold text-black uppercase tracking-wider sm:tracking-widest leading-tight">
                     Frequently<br/>Asked<br/>Questions
                 </h1>
             </div>
@@ -255,7 +269,7 @@
                                 <label class="block text-sm font-bold uppercase tracking-wider">Contact Details:</label>
                                 <input type="text" id="contact-name" oninput="validateForm()" placeholder="Full name" class="w-full border border-black p-2 text-sm bg-white outline-none focus:ring-1 focus:ring-black">
                                 <input type="tel" id="contact-phone" oninput="validateForm()" placeholder="Phone, e.g. (915) 555-0199" class="w-full border border-black p-2 text-sm bg-white outline-none focus:ring-1 focus:ring-black">
-                                <p id="phone-error" class="text-[10px] uppercase tracking-wider text-black/60 hidden">Please enter a valid 10-digit phone number.</p>
+                                <p id="phone-error" class="text-[10px] uppercase tracking-wider text-red-600 font-bold hidden">Please enter a valid 10-digit phone number.</p>
                                 <input type="number" id="contact-plates" min="1" step="1" oninput="validateForm()" placeholder="Estimated # of plates" class="w-full border border-black p-2 text-sm bg-white outline-none focus:ring-1 focus:ring-black">
                             </div>
 
@@ -346,9 +360,14 @@
         lucide.createIcons();
 
         // --- View Logic ---
+        function toggleMobileMenu() {
+            document.getElementById('mobile-menu').classList.toggle('hidden');
+        }
+
         function switchTab(tabId) {
             // Update state
             state.activeTab = tabId;
+            document.getElementById('mobile-menu').classList.add('hidden');
 
             // Hide all views
             document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
@@ -614,7 +633,7 @@
                 const reason = isDateBlocked(ds);
                 const isPast = ds <= today; // tastings must be booked for a future date
                 if (isPast || reason) {
-                    html += `<span title="${reason ? reason.replace(/"/g, '&quot;') : ''}" class="py-1 text-sm text-black/30 line-through cursor-not-allowed">${d}</span>`;
+                    html += `<span title="${reason ? reason.replace(/"/g, '&quot;') : ''}" class="py-1 text-sm text-black/70 line-through decoration-2 bg-gray-100 cursor-not-allowed">${d}</span>`;
                 } else {
                     const sel = state.tastingDate === ds;
                     html += `<button onclick="selectDate('${ds}')" class="py-1 text-sm transition-colors ${sel ? 'bg-black text-white font-bold' : 'hover:bg-gray-200'}">${d}</button>`;
@@ -653,7 +672,14 @@
             const btn = document.getElementById('submit-btn');
 
             const phoneOk = isPhoneValid(phone);
-            document.getElementById('phone-error').classList.toggle('hidden', phoneOk || !phone);
+            const phoneBad = !phoneOk && !!phone;
+            const phoneInput = document.getElementById('contact-phone');
+            document.getElementById('phone-error').classList.toggle('hidden', !phoneBad);
+            phoneInput.classList.toggle('border-red-600', phoneBad);
+            phoneInput.classList.toggle('text-red-600', phoneBad);
+            phoneInput.classList.toggle('focus:ring-red-600', phoneBad);
+            phoneInput.classList.toggle('border-black', !phoneBad);
+            phoneInput.classList.toggle('focus:ring-black', !phoneBad);
 
             const platesOk = Number.isInteger(plates) && plates > 0;
             const dateOk = state.tastingDate && !isDateBlocked(state.tastingDate) && state.tastingDate > todayYmd();
