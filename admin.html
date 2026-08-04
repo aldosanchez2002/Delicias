@@ -23,6 +23,23 @@
 </head>
 <body class="selection:bg-gray-200">
 
+    <!-- Password gate. Not real security — it only keeps stray visitors out of the manager. -->
+    <div id="auth-gate" class="fixed inset-0 z-[100] bg-white flex items-center justify-center px-4">
+        <div class="border border-black p-8 w-full max-w-sm text-center">
+            <h1 class="text-2xl font-bold uppercase tracking-widest mb-2">Delicias Admin</h1>
+            <p class="text-xs font-bold uppercase tracking-wider text-black/60 mb-6">Enter the password to continue</p>
+            <input type="password" id="auth-input" placeholder="Password" autocomplete="current-password"
+                class="w-full border border-black p-3 text-center tracking-widest mb-2 outline-none focus:ring-1 focus:ring-black">
+            <p id="auth-error" class="hidden text-xs font-bold uppercase tracking-wider text-red-600 mb-2">Incorrect password</p>
+            <button onclick="submitAuth()" class="w-full bg-black hover:bg-gray-800 text-white py-3 font-bold uppercase tracking-widest transition-colors mt-2">
+                Enter
+            </button>
+            <a href="index.html" class="block w-full border border-black py-3 font-bold uppercase tracking-widest hover:bg-gray-100 transition-colors mt-3">
+                Back to Home
+            </a>
+        </div>
+    </div>
+
     <nav class="bg-white text-black shadow-sm sticky top-0 z-50 border-b border-gray-200">
         <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center h-20">
@@ -143,25 +160,32 @@
         <!-- ======================= FLAVORS TAB ======================= -->
         <div id="section-flavors" class="admin-section hidden">
             <p class="text-sm text-black/70 mb-8 max-w-2xl">
-                When a customer builds a plate that combines a main and a side listed here, they see a
+                When a customer builds a plate containing both items of a pair listed here, they see a
                 <span class="font-bold uppercase">Pairing Alert</span> and must confirm before requesting a tasting.
+                A pair can be any two menu items &mdash; two entrees, two sides, or an entree and a side.
             </p>
             <section class="border border-black p-6 mb-12">
                 <h2 class="text-xl font-bold mb-6 uppercase tracking-wider">Add Conflicting Pair</h2>
                 <div class="flex flex-col md:flex-row gap-4 items-end">
                     <div class="flex-grow w-full">
-                        <label class="block text-xs font-bold uppercase tracking-wider mb-1">Entree / Taquiza</label>
-                        <select id="conflict-main" class="w-full border border-black p-2 bg-white"></select>
+                        <label class="block text-xs font-bold uppercase tracking-wider mb-1">First item</label>
+                        <select id="conflict-a" onchange="renderConflictVariants('a')" class="w-full border border-black p-2 bg-white"></select>
+                        <select id="conflict-a-variant" class="w-full border border-black p-2 bg-white mt-2 hidden"></select>
                     </div>
-                    <span class="font-bold text-xl hidden md:block pb-1">&times;</span>
+                    <span class="font-bold text-xl hidden md:block pb-6">&times;</span>
                     <div class="flex-grow w-full">
-                        <label class="block text-xs font-bold uppercase tracking-wider mb-1">Side</label>
-                        <select id="conflict-side" class="w-full border border-black p-2 bg-white"></select>
+                        <label class="block text-xs font-bold uppercase tracking-wider mb-1">Second item</label>
+                        <select id="conflict-b" onchange="renderConflictVariants('b')" class="w-full border border-black p-2 bg-white"></select>
+                        <select id="conflict-b-variant" class="w-full border border-black p-2 bg-white mt-2 hidden"></select>
                     </div>
                     <button onclick="addConflict()" class="bg-black hover:bg-gray-800 text-white px-8 py-2.5 font-bold uppercase tracking-widest transition-colors w-full md:w-auto">
                         Add
                     </button>
                 </div>
+                <p class="text-xs text-black/60 mt-4">
+                    Leave a style on <span class="font-bold uppercase">Any style</span> to flag the dish however it is prepared,
+                    or pick one to flag only that style &mdash; for example Chicken (Alfredo) &times; Rice (Red).
+                </p>
             </section>
             <h2 class="text-2xl font-bold border-b-2 border-black pb-2 mb-6 uppercase tracking-widest">Active Conflicts</h2>
             <div id="list-conflicts" class="space-y-3"></div>
@@ -264,6 +288,42 @@
         Delicias Kitchen Catering — Admin
     </footer>
 
+    <script>
+        // Base64 of the admin password. This is obfuscation, not security — anyone can
+        // read it in the page source. It exists to stop accidental visits, nothing more.
+        const ADMIN_PASS_B64 = "QUxETw==";
+        const AUTH_KEY = "delicias-admin-unlocked";
+
+        function unlockAdmin() {
+            const gate = document.getElementById('auth-gate');
+            if (gate) gate.remove();
+            document.body.style.overflow = '';
+        }
+
+        function submitAuth() {
+            const value = document.getElementById('auth-input').value.trim().toUpperCase();
+            if (btoa(value) === ADMIN_PASS_B64) {
+                try { sessionStorage.setItem(AUTH_KEY, '1'); } catch (e) { /* private mode */ }
+                unlockAdmin();
+            } else {
+                document.getElementById('auth-error').classList.remove('hidden');
+                const input = document.getElementById('auth-input');
+                input.value = '';
+                input.focus();
+            }
+        }
+
+        (function initAuth() {
+            let unlocked = false;
+            try { unlocked = sessionStorage.getItem(AUTH_KEY) === '1'; } catch (e) { /* private mode */ }
+            if (unlocked) { unlockAdmin(); return; }
+            document.body.style.overflow = 'hidden';
+            const input = document.getElementById('auth-input');
+            input.focus();
+            input.addEventListener('keydown', e => { if (e.key === 'Enter') submitAuth(); });
+        })();
+    </script>
+
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
         import {
@@ -302,11 +362,13 @@
          * Brunch packages are fixed menus (not mix & match) — they are shown on
          * the public menu but are not offered in the plate builder.
          *
-         * flavorConflicts/    admin-defined main+side pairs that trigger the pairing alert
-         *   mainId       string    menuItems doc id of the entree/taquiza
-         *   sideId       string    menuItems doc id of the side
-         *   mainName     string    denormalized names for display
-         *   sideName     string
+         * flavorConflicts/    admin-defined pairs that trigger the pairing alert when both
+         *                     appear on one plate. Symmetric — either item may be an
+         *                     entree, side, salad, or anything else buildable.
+         *   aId, bId     string    menuItems doc ids of the two items
+         *   aVariant     string    style the clash applies to; "" = any style
+         *   bVariant     string
+         *   aName, bName string    denormalized names for display
          *
          * availabilityRules/  dates customers cannot book
          *   kind         string    "date" | "recurring"
@@ -434,10 +496,10 @@
                     await updateDoc(doc(db, "menuItems", editingId), data);
                     // Keep denormalized names in flavor conflicts in sync
                     for (const c of conflicts) {
-                        if (c.mainId === editingId && c.mainName !== name)
-                            await updateDoc(doc(db, "flavorConflicts", c.id), { mainName: name });
-                        if (c.sideId === editingId && c.sideName !== name)
-                            await updateDoc(doc(db, "flavorConflicts", c.id), { sideName: name });
+                        if (c.aId === editingId && c.aName !== name)
+                            await updateDoc(doc(db, "flavorConflicts", c.id), { aName: name });
+                        if (c.bId === editingId && c.bName !== name)
+                            await updateDoc(doc(db, "flavorConflicts", c.id), { bName: name });
                     }
                     showStatus(`Updated "${name}".`);
                     cancelEdit();
@@ -500,7 +562,7 @@
             try {
                 await deleteDoc(doc(db, "menuItems", id));
                 // Remove any flavor conflicts that referenced this item
-                for (const c of conflicts.filter(c => c.mainId === id || c.sideId === id)) {
+                for (const c of conflicts.filter(c => c.aId === id || c.bId === id)) {
                     await deleteDoc(doc(db, "flavorConflicts", c.id));
                 }
                 if (editingId === id) cancelEdit();
@@ -509,16 +571,52 @@
         };
 
         // ======================= FLAVOR CONFLICTS =======================
+        // Any two buildable items can clash, so both pickers list everything a
+        // customer can put on a plate, grouped by course.
+        const CONFLICT_GROUPS = [
+            ["Entrees", "entree"], ["Taquizas", "taquiza"], ["Sides", "side"],
+            ["Salads", "salad"], ["Taquiza Sides", "taquizaSide"],
+            ["Kids Entrees", "kids"], ["Kids Sides", "kidsSide"]
+        ];
+
         function renderConflictSelects() {
-            const opt = i => `<option value="${i.id}">${escapeHtml(i.name)}</option>`;
-            const mainSel = document.getElementById('conflict-main');
-            const sideSel = document.getElementById('conflict-side');
-            const prevMain = mainSel.value, prevSide = sideSel.value;
-            mainSel.innerHTML = items.filter(i => i.type === 'entree' || i.type === 'taquiza').map(opt).join('');
-            sideSel.innerHTML = items.filter(i => i.type === 'side' || i.type === 'salad' || i.type === 'taquizaSide').map(opt).join('');
-            if ([...mainSel.options].some(o => o.value === prevMain)) mainSel.value = prevMain;
-            if ([...sideSel.options].some(o => o.value === prevSide)) sideSel.value = prevSide;
+            const html = CONFLICT_GROUPS.map(([label, type]) => {
+                const group = items.filter(i => i.type === type);
+                if (!group.length) return '';
+                return `<optgroup label="${label}">` +
+                    group.map(i => `<option value="${i.id}">${escapeHtml(i.name)}</option>`).join('') +
+                    `</optgroup>`;
+            }).join('');
+
+            for (const which of ['a', 'b']) {
+                const sel = document.getElementById(`conflict-${which}`);
+                const prev = sel.value;
+                sel.innerHTML = html;
+                if ([...sel.options].some(o => o.value === prev)) sel.value = prev;
+                renderConflictVariants(which);
+            }
         }
+
+        // Styles for the dish currently chosen on one side of the pair.
+        // "Any style" (empty value) makes the conflict apply to every style.
+        window.renderConflictVariants = (which) => {
+            const dish = items.find(i => i.id === document.getElementById(`conflict-${which}`).value);
+            const sel = document.getElementById(`conflict-${which}-variant`);
+            const variants = (dish && dish.variants) || [];
+            if (!variants.length) {
+                sel.innerHTML = '';
+                sel.classList.add('hidden');
+                return;
+            }
+            const prev = sel.value;
+            sel.innerHTML = '<option value="">Any style</option>' +
+                variants.map(v => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
+            if ([...sel.options].some(o => o.value === prev)) sel.value = prev;
+            sel.classList.remove('hidden');
+        };
+
+        const withStyle = (name, variant) =>
+            escapeHtml(name) + (variant ? ` <span class="font-normal text-black/60">(${escapeHtml(variant)})</span>` : '');
 
         function renderConflicts() {
             const container = document.getElementById('list-conflicts');
@@ -527,29 +625,40 @@
                 return;
             }
             container.innerHTML = conflicts.map(c => `
-                <div class="border border-black/30 p-4 flex items-center justify-between bg-white">
-                    <span class="font-bold uppercase tracking-wider">${escapeHtml(c.mainName)} <span class="text-black/50 mx-1">&times;</span> ${escapeHtml(c.sideName)}</span>
-                    <button onclick="removeConflict('${c.id}')" class="border border-black hover:bg-black hover:text-white px-3 py-2 text-xs font-bold uppercase tracking-wider transition-colors">Delete</button>
+                <div class="border border-black/30 p-4 flex items-center justify-between gap-4 bg-white">
+                    <span class="font-bold uppercase tracking-wider">${withStyle(c.aName, c.aVariant)} <span class="text-black/50 mx-1">&times;</span> ${withStyle(c.bName, c.bVariant)}</span>
+                    <button onclick="removeConflict('${c.id}')" class="border border-black hover:bg-black hover:text-white px-3 py-2 text-xs font-bold uppercase tracking-wider transition-colors flex-shrink-0">Delete</button>
                 </div>`).join('');
         }
 
         window.addConflict = async () => {
-            const mainId = document.getElementById('conflict-main').value;
-            const sideId = document.getElementById('conflict-side').value;
-            const main = items.find(i => i.id === mainId);
-            const side = items.find(i => i.id === sideId);
-            if (!main || !side) { showStatus("Pick an entree/taquiza and a side.", true); return; }
-            if (conflicts.some(c => c.mainId === mainId && c.sideId === sideId)) {
+            const aId = document.getElementById('conflict-a').value;
+            const bId = document.getElementById('conflict-b').value;
+            const a = items.find(i => i.id === aId);
+            const b = items.find(i => i.id === bId);
+            if (!a || !b) { showStatus("Pick two menu items.", true); return; }
+            const aVariant = (a.variants || []).length ? document.getElementById('conflict-a-variant').value : '';
+            const bVariant = (b.variants || []).length ? document.getElementById('conflict-b-variant').value : '';
+            if (aId === bId && aVariant === bVariant) {
+                showStatus("Pick two different items, or two different styles of one dish.", true);
+                return;
+            }
+            // Pairs are symmetric, so A x B and B x A are the same conflict
+            const same = (x, xv, y, yv) =>
+                (x === aId && xv === aVariant && y === bId && yv === bVariant) ||
+                (x === bId && xv === bVariant && y === aId && yv === aVariant);
+            if (conflicts.some(c => same(c.aId, c.aVariant || '', c.bId, c.bVariant || ''))) {
                 showStatus("That pair already exists.", true);
                 return;
             }
+            const label = (n, v) => n + (v ? ` (${v})` : '');
             try {
                 await addDoc(conflictsRef, {
-                    mainId, sideId,
-                    mainName: main.name, sideName: side.name,
+                    aId, bId, aVariant, bVariant,
+                    aName: a.name, bName: b.name,
                     createdAt: serverTimestamp()
                 });
-                showStatus(`Added conflict: ${main.name} × ${side.name}.`);
+                showStatus(`Added conflict: ${label(a.name, aVariant)} × ${label(b.name, bVariant)}.`);
             } catch (err) { console.error(err); showStatus("Failed to add conflict.", true); }
         };
 
