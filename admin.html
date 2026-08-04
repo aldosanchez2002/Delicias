@@ -77,6 +77,10 @@
                         <input type="text" id="item-variants" placeholder="e.g. Poblano, Chipotle, Mushroom" class="w-full border border-black p-2">
                     </div>
                     <div class="md:col-span-2">
+                        <label class="block text-xs font-bold uppercase tracking-wider mb-1">Plate builder photo (optional &mdash; path to a top-down dish photo)</label>
+                        <input type="text" id="item-image" placeholder="e.g. PlateBuilderPhotos/chicken-poblano.jpg" class="w-full border border-black p-2">
+                    </div>
+                    <div class="md:col-span-2">
                         <label class="block text-xs font-bold uppercase tracking-wider mb-1">Description</label>
                         <input type="text" id="item-description" placeholder="Short description shown on the menu" class="w-full border border-black p-2">
                     </div>
@@ -272,6 +276,8 @@
          *                          | taquiza | taquizaSide | brunch | appetizer
          *   variants     string[]  style options for the dish (e.g. Poblano, Chipotle);
          *                          customer picks one in the plate builder
+         *   image        string    path to a top-down dish photo (PlateBuilderPhotos/...)
+         *                          used by the plate builder to stitch the plate preview
          *   available    boolean   false hides from the public site without deleting
          *   sortOrder    number    display order within its section
          *   createdAt / updatedAt  timestamps
@@ -402,6 +408,7 @@
                 price,
                 type,
                 variants: document.getElementById('item-variants').value.split(',').map(v => v.trim()).filter(Boolean),
+                image: document.getElementById('item-image').value.trim(),
                 description: document.getElementById('item-description').value.trim(),
                 updatedAt: serverTimestamp()
             };
@@ -437,6 +444,7 @@
             document.getElementById('item-name').value = item.name;
             document.getElementById('item-price').value = item.price ?? '';
             document.getElementById('item-variants').value = (item.variants || []).join(', ');
+            document.getElementById('item-image').value = item.image || '';
             document.getElementById('item-description').value = item.description || '';
             document.getElementById('item-form-title').textContent = `Editing: ${item.name}`;
             document.getElementById('item-submit-btn').textContent = 'Save Changes';

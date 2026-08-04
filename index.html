@@ -248,7 +248,7 @@
                             <div class="w-64 h-64 mx-auto rounded-full bg-white border border-black flex items-center justify-center mb-8 overflow-hidden relative" id="plate-visual">
                                 <span class="text-black/40 font-bold uppercase text-xs" id="plate-empty-text">Empty</span>
                                 <i data-lucide="loader-2" class="h-6 w-6 text-black animate-spin hidden" id="plate-loader"></i>
-                                <img src="" alt="Plate" class="w-full h-full object-cover hidden" id="plate-image">
+                                <canvas width="512" height="512" class="w-full h-full hidden" id="plate-canvas"></canvas>
                                 <i data-lucide="image" class="h-6 w-6 text-black/40 hidden" id="plate-placeholder-icon"></i>
                             </div>
 
@@ -372,7 +372,6 @@
             calMonth: _now.getMonth()
         };
 
-        let typingTimer;
 
         // Initialize Icons
         lucide.createIcons();
@@ -566,7 +565,7 @@
             updatePlateSummary();
             renderVariantPickers();
             checkWarnings();
-            triggerImageGeneration();
+            stitchPlate();
         }
 
         function toggleSide(sideId) {
@@ -589,7 +588,7 @@
             updatePlateSummary();
             renderVariantPickers();
             checkWarnings();
-            triggerImageGeneration();
+            stitchPlate();
         }
 
         // --- Variant selection (e.g. Chicken: Poblano / Chipotle / ...) ---
@@ -632,7 +631,7 @@
             else state.sideVariants[key] = value;
             updatePlateSummary();
             validateForm();
-            triggerImageGeneration();
+            stitchPlate();
         }
 
         function checkWarnings() {
@@ -676,7 +675,7 @@
         }
 
         // --- Photo Gallery ---
-        const GALLERY_COUNT = 82; // Photos/1.jpg ... Photos/82.jpg
+        const GALLERY_COUNT = 82; // GalleryPhotos/1.jpg ... GalleryPhotos/82.jpg
         let lightboxIndex = 1;
 
         function renderGallery() {
@@ -685,7 +684,7 @@
             for (let i = 1; i <= GALLERY_COUNT; i++) {
                 html += `
                     <button onclick="openLightbox(${i})" class="aspect-square overflow-hidden border border-black/10 hover:opacity-80 transition-opacity" aria-label="View photo ${i}">
-                        <img src="Photos/${i}.jpg" alt="Delicias catering photo ${i}" loading="lazy" class="w-full h-full object-cover">
+                        <img src="GalleryPhotos/${i}.jpg" alt="Delicias catering photo ${i}" loading="lazy" class="w-full h-full object-cover">
                     </button>`;
             }
             grid.innerHTML = html;
@@ -693,7 +692,7 @@
 
         function openLightbox(i) {
             lightboxIndex = i;
-            document.getElementById('lightbox-image').src = `Photos/${i}.jpg`;
+            document.getElementById('lightbox-image').src = `GalleryPhotos/${i}.jpg`;
             document.getElementById('lightbox-counter').innerText = `${i} / ${GALLERY_COUNT}`;
             document.getElementById('lightbox').classList.remove('hidden');
             document.body.style.overflow = 'hidden';
@@ -825,64 +824,110 @@
             }
         }
 
-        function triggerImageGeneration() {
-             if (!state.plateMain) {
+        // --- Plate visual: stitch pre-generated dish photos (PlateBuilderPhotos/)
+        // into plate sectors on a canvas. No AI at request time — each dish has a
+        // stored top-down photo and gets an equal wedge of the plate.
+        const dishImageCache = {};
+        function loadDishImage(src) {
+            if (!dishImageCache[src]) {
+                dishImageCache[src] = new Promise(resolve => {
+                    const img = new Image();
+                    img.onload = () => resolve(img);
+                    img.onerror = () => resolve(null);
+                    img.src = src;
+                });
+            }
+            return dishImageCache[src];
+        }
+
+        let stitchToken = 0;
+        async function stitchPlate() {
+            if (!state.plateMain) {
                 resetPlateVisual();
                 return;
-             }
+            }
+            const token = ++stitchToken;
+            setPlateVisualLoading();
 
-             clearTimeout(typingTimer);
-             setPlateVisualLoading();
+            const items = [state.plateMain, ...state.plateSides];
+            const images = await Promise.all(items.map(i => i.image ? loadDishImage(i.image) : Promise.resolve(null)));
+            if (token !== stitchToken) return; // selection changed while loading
 
-             typingTimer = setTimeout(() => {
-                try {
-                    const mainName = state.mainVariant ? `${state.mainVariant} ${state.plateMain.name}` : state.plateMain.name;
-                    const sideNames = state.plateSides.map(s => state.sideVariants[s.id] ? `${state.sideVariants[s.id]} ${s.name}` : s.name).join(' and ');
-                    const prompt = `Professional top-down food photography of a white ceramic dinner plate. Food: ${mainName}${sideNames ? ` with ${sideNames}` : ''}. Authentic catering presentation, realistic, well-lit.`;
+            const S = 512, C = S / 2, R = S / 2 - 8;
+            const canvas = document.getElementById('plate-canvas');
+            const ctx = canvas.getContext('2d');
 
-                    // Using Pollinations AI for keyless, instant image generation
-                    const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=400&height=400&nologo=true`;
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, S, S);
 
-                    const img = new Image();
-                    img.onload = () => setPlateVisualImage(imageUrl);
-                    img.onerror = () => setPlateVisualPlaceholder();
-                    img.src = imageUrl;
-
-                } catch (error) {
-                    console.error("Image generation failed", error);
-                    setPlateVisualPlaceholder();
+            // Equal wedges: 2 items = halves, 3 items = thirds
+            const sweep = (Math.PI * 2) / items.length;
+            let angle = -Math.PI / 2;
+            items.forEach((item, idx) => {
+                ctx.save();
+                ctx.beginPath();
+                if (items.length === 1) {
+                    ctx.arc(C, C, R, 0, Math.PI * 2);
+                } else {
+                    ctx.moveTo(C, C);
+                    ctx.arc(C, C, R, angle, angle + sweep);
+                    ctx.closePath();
                 }
-             }, 400);
+                ctx.clip();
+                if (images[idx]) {
+                    // Zoomed center-crop so any bowl/plate edges in the source photo stay outside the wedge
+                    const Z = 1.5;
+                    ctx.drawImage(images[idx], C - (S * Z) / 2, C - (S * Z) / 2, S * Z, S * Z);
+                } else {
+                    ctx.fillStyle = '#e5e7eb';
+                    ctx.fillRect(0, 0, S, S);
+                }
+                ctx.restore();
+                angle += sweep;
+            });
+
+            // White divider lines between wedges
+            if (items.length > 1) {
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 5;
+                let a = -Math.PI / 2;
+                for (let i = 0; i < items.length; i++) {
+                    ctx.beginPath();
+                    ctx.moveTo(C, C);
+                    ctx.lineTo(C + R * Math.cos(a), C + R * Math.sin(a));
+                    ctx.stroke();
+                    a += sweep;
+                }
+            }
+
+            // Plate rim
+            ctx.beginPath(); ctx.arc(C, C, R, 0, Math.PI * 2);
+            ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 12; ctx.stroke();
+            ctx.beginPath(); ctx.arc(C, C, R - 4, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(0,0,0,0.10)'; ctx.lineWidth = 1.5; ctx.stroke();
+
+            showPlateCanvas();
         }
 
         function resetPlateVisual() {
             document.getElementById('plate-empty-text').classList.remove('hidden');
             document.getElementById('plate-loader').classList.add('hidden');
-            document.getElementById('plate-image').classList.add('hidden');
+            document.getElementById('plate-canvas').classList.add('hidden');
             document.getElementById('plate-placeholder-icon').classList.add('hidden');
         }
 
         function setPlateVisualLoading() {
             document.getElementById('plate-empty-text').classList.add('hidden');
             document.getElementById('plate-loader').classList.remove('hidden');
-            document.getElementById('plate-image').classList.add('hidden');
+            document.getElementById('plate-canvas').classList.add('hidden');
             document.getElementById('plate-placeholder-icon').classList.add('hidden');
         }
 
-        function setPlateVisualImage(src) {
+        function showPlateCanvas() {
             document.getElementById('plate-empty-text').classList.add('hidden');
             document.getElementById('plate-loader').classList.add('hidden');
-            const img = document.getElementById('plate-image');
-            img.src = src;
-            img.classList.remove('hidden');
+            document.getElementById('plate-canvas').classList.remove('hidden');
             document.getElementById('plate-placeholder-icon').classList.add('hidden');
-        }
-
-        function setPlateVisualPlaceholder() {
-            document.getElementById('plate-empty-text').classList.add('hidden');
-            document.getElementById('plate-loader').classList.add('hidden');
-            document.getElementById('plate-image').classList.add('hidden');
-            document.getElementById('plate-placeholder-icon').classList.remove('hidden');
         }
 
         async function submitBooking() {
@@ -995,6 +1040,7 @@
                             type: data.type,
                             description: data.description || '',
                             variants: data.variants || [],
+                            image: data.image || '',
                             available: data.available
                         };
                     })
