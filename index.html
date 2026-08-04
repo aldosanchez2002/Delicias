@@ -255,7 +255,7 @@
                                     <span class="text-[10px] font-bold uppercase tracking-wider text-black/40">No photo of this combination yet</span>
                                 </div>
                             </div>
-                            <p id="plate-caption" class="text-[10px] uppercase tracking-wider text-black/60 mb-6 min-h-[2.5rem] leading-relaxed"></p>
+                            <div id="plate-caption" class="text-[10px] uppercase tracking-wider text-black/60 mb-6 min-h-[2.5rem] leading-relaxed"></div>
 
                             <div class="mb-6 space-y-2 text-sm">
                                 <div class="flex justify-between border-b border-black/20 pb-1">
@@ -888,10 +888,11 @@
                 let pick = -1, value = 0;
                 photoItems.forEach((p, idx) => {
                     if (used.has(idx) || p.id !== wanted.id) return;
-                    const v = (p.variant || '') === wanted.variant ? STYLE_MATCH : DISH_MATCH;
+                    // No style chosen yet means no preference to contradict, so any style fits
+                    const v = (!wanted.variant || (p.variant || '') === wanted.variant) ? STYLE_MATCH : DISH_MATCH;
                     if (v > value) { value = v; pick = idx; }
                 });
-                if (pick < 0) { diffs.push(`without ${wanted.name}`); return; }
+                if (pick < 0) { diffs.push(`Without ${wanted.name}`); return; }
                 used.add(pick);
                 score += weight * value;
                 if (value < STYLE_MATCH) {
@@ -903,7 +904,8 @@
             want.sides.forEach(s => consider(s, SIDE_WEIGHT));
 
             const extras = photoItems.filter((_, idx) => !used.has(idx));
-            extras.forEach(e => diffs.push(`also shows ${e.name}`));
+            // Name the style, or "also pictured: Fajita" is ambiguous when the photo holds two
+            extras.forEach(e => diffs.push(`Also pictured: ${e.variant ? `${e.name} (${e.variant})` : e.name}`));
             score -= extras.length * EXTRA_PENALTY;
 
             return { photo, ratio: best ? Math.max(0, score) / best : 0, exact: diffs.length === 0, diffs };
@@ -930,14 +932,28 @@
             img.alt = match.exact ? 'Your plate' : 'Closest matching plate';
         }
 
+        // The verdict stays short; the full difference list hides behind a toggle
         function setPlateCaption(match) {
             const caption = document.getElementById('plate-caption');
             if (match.exact) {
                 caption.innerHTML = `<span class="font-bold text-black">Your plate</span>`;
                 return;
             }
-            caption.innerHTML = `<span class="font-bold text-black">Closest match</span> &mdash; ` +
-                match.diffs.slice(0, 3).join(' &bull; ') + (match.diffs.length > 3 ? ' &hellip;' : '');
+            const items = match.diffs
+                .map(d => `<li class="flex gap-2"><span class="text-black/30">&bull;</span><span>${d}</span></li>`)
+                .join('');
+            caption.innerHTML = `
+                <span class="font-bold text-black">Closest match</span>
+                <button type="button" id="plate-detail-toggle" onclick="togglePlateDetail()"
+                        class="ml-2 underline underline-offset-2 hover:text-black transition-colors">
+                    What&rsquo;s different?
+                </button>
+                <ul id="plate-detail" class="hidden mt-2 space-y-1 text-left normal-case tracking-normal text-black/70">${items}</ul>`;
+        }
+
+        function togglePlateDetail() {
+            const hidden = document.getElementById('plate-detail').classList.toggle('hidden');
+            document.getElementById('plate-detail-toggle').innerHTML = hidden ? 'What&rsquo;s different?' : 'Hide';
         }
 
         function plateVisualState({ empty = false, loading = false, photo = false, placeholder = false }) {
