@@ -160,6 +160,7 @@
                     <h3 class="text-2xl font-bold text-black mb-4 uppercase">Grand</h3>
                     <ul class="space-y-3 text-sm font-bold uppercase tracking-wider text-black/80">
                         <li>&bull; Weddings</li>
+                        <li>&bull; Quincea&ntilde;eras</li>
                         <li>&bull; Galas</li>
                         <li>&bull; Large Venues</li>
                     </ul>
@@ -675,25 +676,44 @@
         }
 
         // --- Photo Gallery ---
-        const GALLERY_COUNT = 82; // GalleryPhotos/1.jpg ... GalleryPhotos/82.jpg
+        const GALLERY_COUNT = 79; // GalleryPhotos/1.jpg ... GalleryPhotos/79.jpg
         let lightboxIndex = 1;
+        // Any photo that fails to load (e.g. deleted from the folder) is dropped from
+        // the grid and skipped by the lightbox, so the gallery never shows a broken tile.
+        const missingPhotos = new Set();
 
         function renderGallery() {
             const grid = document.getElementById('gallery-grid');
             let html = '';
             for (let i = 1; i <= GALLERY_COUNT; i++) {
                 html += `
-                    <button onclick="openLightbox(${i})" class="aspect-square overflow-hidden border border-black/10 hover:opacity-80 transition-opacity" aria-label="View photo ${i}">
-                        <img src="GalleryPhotos/${i}.jpg" alt="Delicias catering photo ${i}" loading="lazy" class="w-full h-full object-cover">
+                    <button onclick="openLightbox(${i})" id="gallery-tile-${i}" class="aspect-square overflow-hidden border border-black/10 hover:opacity-80 transition-opacity" aria-label="View photo ${i}">
+                        <img src="GalleryPhotos/${i}.jpg" alt="Delicias catering photo ${i}" loading="lazy" onerror="dropGalleryPhoto(${i})" class="w-full h-full object-cover">
                     </button>`;
             }
             grid.innerHTML = html;
         }
 
+        function dropGalleryPhoto(i) {
+            missingPhotos.add(i);
+            const tile = document.getElementById(`gallery-tile-${i}`);
+            if (tile) tile.remove();
+        }
+
+        function availablePhotos() {
+            const out = [];
+            for (let i = 1; i <= GALLERY_COUNT; i++) if (!missingPhotos.has(i)) out.push(i);
+            return out;
+        }
+
         function openLightbox(i) {
+            const available = availablePhotos();
+            if (!available.length) return;
+            if (missingPhotos.has(i)) i = available[0];
             lightboxIndex = i;
             document.getElementById('lightbox-image').src = `GalleryPhotos/${i}.jpg`;
-            document.getElementById('lightbox-counter').innerText = `${i} / ${GALLERY_COUNT}`;
+            document.getElementById('lightbox-counter').innerText =
+                `${available.indexOf(i) + 1} / ${available.length}`;
             document.getElementById('lightbox').classList.remove('hidden');
             document.body.style.overflow = 'hidden';
         }
@@ -705,7 +725,11 @@
         }
 
         function lightboxShift(dir) {
-            openLightbox(((lightboxIndex - 1 + dir + GALLERY_COUNT) % GALLERY_COUNT) + 1);
+            const available = availablePhotos();
+            if (!available.length) return;
+            const at = available.indexOf(lightboxIndex);
+            const next = (at + dir + available.length) % available.length;
+            openLightbox(available[next]);
         }
 
         document.addEventListener('keydown', e => {
