@@ -171,7 +171,6 @@
              <div class="text-center mb-12">
                 <h1 class="text-6xl md:text-8xl font-bold text-black mb-2 uppercase tracking-widest">Menu</h1>
             </div>
-            <div id="menu-service-filters" class="flex justify-center gap-3 flex-wrap mb-16 hidden"></div>
             <div class="space-y-16" id="menu-container">
                 <!-- Menu items populated by JS -->
             </div>
@@ -264,6 +263,8 @@
                                 </div>
                             </div>
 
+                            <div id="variant-pickers" class="mb-6 space-y-3 hidden"></div>
+
                             <div id="warning-container" class="bg-gray-200 border border-black text-black p-4 mb-6 text-xs flex-col gap-3 hidden">
                                 <span class="font-bold uppercase tracking-wider text-black flex items-center gap-2">
                                     <i data-lucide="alert-triangle" class="h-4 w-4"></i> Pairing Alert
@@ -350,9 +351,7 @@
     <script>
         // All data lives in Firestore (managed via admin.html) and is loaded by the
         // module script at the bottom of this file into the variables below.
-        const SERVICES = [['breakfast', 'Breakfast'], ['brunch', 'Brunch'], ['dinner', 'Dinner']];
-        const COURSES = [['entree', 'Entrees'], ['taquiza', 'Taquizas'], ['appetizer', 'Appetizers'], ['side', 'Sides']];
-
+        // Item types: entree | side | salad (Dinners), taquiza | taquizaSide, brunch, appetizer.
         const menuData = { items: [] };
         let flavorConflicts = [];
         let availabilityRules = [];
@@ -362,9 +361,10 @@
         const _now = new Date();
         let state = {
             activeTab: 'home',
-            menuService: 'all',
             plateMain: null,
             plateSides: [],
+            mainVariant: '',
+            sideVariants: {},
             pairingWarnings: [],
             acknowledgedWarnings: false,
             tastingDate: '',
@@ -411,34 +411,40 @@
         function builderMains() {
             return menuData.items.filter(i => i.type === 'entree' || i.type === 'taquiza');
         }
+        // The side list depends on the selected main: taquizas have their own sides
         function builderSides() {
-            return menuData.items.filter(i => i.type === 'side');
+            if (state.plateMain && state.plateMain.type === 'taquiza') {
+                return menuData.items.filter(i => i.type === 'taquizaSide');
+            }
+            return menuData.items.filter(i => i.type === 'side' || i.type === 'salad');
         }
         function findItem(id) {
             return menuData.items.find(i => i.id === id);
         }
-
-        // --- Render Menu List ---
-        function renderServiceFilters() {
-            const container = document.getElementById('menu-service-filters');
-            const present = SERVICES.filter(([key]) => menuData.items.some(i => (i.mealServices || []).includes(key)));
-            if (present.length === 0) {
-                container.classList.add('hidden');
-                return;
-            }
-            container.classList.remove('hidden');
-            const btn = (key, label) => `
-                <button onclick="setMenuService('${key}')"
-                    class="px-5 py-2 border border-black text-xs font-bold uppercase tracking-widest transition-colors ${state.menuService === key ? 'bg-black text-white' : 'bg-white text-black hover:bg-gray-100'}">
-                    ${label}
-                </button>`;
-            container.innerHTML = btn('all', 'Full Menu') + present.map(([k, l]) => btn(k, l)).join('');
+        function ofType(type) {
+            return menuData.items.filter(i => i.type === type);
         }
 
-        function setMenuService(key) {
-            state.menuService = key;
-            renderServiceFilters();
-            renderMenu();
+        // --- Render Menu List ---
+        function menuItemRow(item) {
+            return `
+                <div class="flex justify-between items-end gap-4">
+                    <div>
+                        <h4 class="font-bold text-lg text-black uppercase tracking-wider">${item.name}</h4>
+                        ${(item.variants || []).length ? `<p class="text-sm text-black/70">${item.variants.join(' &bull; ')}</p>` : ''}
+                        ${item.description ? `<p class="text-sm text-black/70">${item.description}</p>` : ''}
+                    </div>
+                    ${typeof item.price === 'number' ? `<div class="font-bold text-gray-600 whitespace-nowrap">$${item.price}</div>` : ''}
+                </div>`;
+        }
+
+        function menuSubsection(title, items) {
+            if (!items.length) return '';
+            return `
+                <div class="mt-10 first:mt-0">
+                    ${title ? `<h3 class="text-lg font-bold text-black/70 uppercase tracking-widest mb-6">${title}</h3>` : ''}
+                    <div class="grid gap-6">${items.map(menuItemRow).join('')}</div>
+                </div>`;
         }
 
         function renderMenu() {
@@ -451,34 +457,34 @@
                 return;
             }
 
-            const filtered = state.menuService === 'all'
-                ? menuData.items
-                : menuData.items.filter(i => (i.mealServices || []).includes(state.menuService));
+            const sections = [];
 
-            let html = COURSES.map(([type, label]) => {
-                const items = filtered.filter(i => i.type === type);
-                if (!items.length) return '';
-                return `
+            const dinners = menuSubsection('Entrees', ofType('entree')) +
+                            menuSubsection('Sides', ofType('side')) +
+                            menuSubsection('Salads', ofType('salad'));
+            if (dinners) sections.push({ title: 'Dinners', note: '', body: dinners });
+
+            const taquizas = menuSubsection('', ofType('taquiza')) +
+                             menuSubsection('Sides for Taquizas', ofType('taquizaSide'));
+            if (taquizas) sections.push({ title: 'Taquizas', note: '', body: taquizas });
+
+            const brunch = menuSubsection('', ofType('brunch'));
+            if (brunch) sections.push({
+                title: 'Brunch',
+                note: 'Served as complete packages &mdash; not mix &amp; match. All brunch packages include juice of your liking, coffee, and milk.',
+                body: brunch
+            });
+
+            const apps = menuSubsection('', ofType('appetizer'));
+            if (apps) sections.push({ title: 'Appetizers', note: '', body: apps });
+
+            container.innerHTML = sections.map(s => `
                 <section>
-                    <h2 class="text-3xl font-bold text-black border-b-2 border-black pb-2 mb-8 uppercase tracking-widest">${label}</h2>
-                    <div class="grid gap-6">
-                        ${items.map(item => `
-                            <div class="flex justify-between items-end">
-                                <div>
-                                    <h4 class="font-bold text-lg text-black uppercase tracking-wider">${item.name}</h4>
-                                    ${item.description ? `<p class="text-sm text-black/70">${item.description}</p>` : ''}
-                                </div>
-                                <div class="font-bold text-gray-600">$${item.price}</div>
-                            </div>
-                        `).join('')}
-                    </div>
-                </section>`;
-            }).join('');
-
-            if (!html) {
-                html = `<p class="text-center font-bold uppercase tracking-widest text-black/60">Nothing on the menu for this service yet — check the full menu.</p>`;
-            }
-            container.innerHTML = html;
+                    <h2 class="text-3xl font-bold text-black border-b-2 border-black pb-2 mb-4 uppercase tracking-widest">${s.title}</h2>
+                    ${s.note ? `<p class="text-xs font-bold uppercase tracking-wider text-black/60 mb-8">${s.note}</p>` : '<div class="mb-8"></div>'}
+                    ${s.body}
+                </section>`).join('') +
+                `<p class="text-center text-xs font-bold uppercase tracking-widest text-black/60 border-t border-black/20 pt-8">All our packages include salsa and bread</p>`;
         }
 
         // --- Builder Logic ---
@@ -503,7 +509,10 @@
                 </div>
             `).join('');
 
-            // Render Sides
+            renderBuilderSides();
+        }
+
+        function renderBuilderSides() {
             const sidesContainer = document.getElementById('builder-sides-container');
             sidesContainer.innerHTML = builderSides().map(side => `
                 <div onclick="toggleSide('${side.id}')"
@@ -512,10 +521,34 @@
                     <h4 class="font-bold uppercase tracking-wider text-xs">${side.name}</h4>
                 </div>
             `).join('');
+            applySideStyling();
+        }
+
+        function applySideStyling() {
+            document.querySelectorAll('.builder-side-opt').forEach(el => {
+                el.classList.remove('border-black', 'bg-black', 'text-white');
+                el.classList.add('border-black/20', 'text-black');
+            });
+            state.plateSides.forEach(s => {
+                const el = document.getElementById(`side-opt-${s.id}`);
+                if (el) {
+                    el.classList.remove('border-black/20', 'text-black');
+                    el.classList.add('border-black', 'bg-black', 'text-white');
+                }
+            });
         }
 
         function selectMain(mainId) {
+            const prevType = state.plateMain ? state.plateMain.type : null;
             state.plateMain = findItem(mainId);
+            state.mainVariant = '';
+
+            // Taquizas and dinner entrees have different side lists — reset sides on switch
+            if (prevType !== state.plateMain.type) {
+                state.plateSides = [];
+                state.sideVariants = {};
+                renderBuilderSides();
+            }
 
             // Update UI selections
             document.querySelectorAll('.builder-main-opt').forEach(el => {
@@ -531,6 +564,7 @@
             sidesSection.classList.remove('opacity-50', 'pointer-events-none');
 
             updatePlateSummary();
+            renderVariantPickers();
             checkWarnings();
             triggerImageGeneration();
         }
@@ -541,30 +575,63 @@
 
             if (isSelected) {
                 state.plateSides = state.plateSides.filter(s => s.id !== sideId);
+                delete state.sideVariants[sideId];
             } else {
                 if (state.plateSides.length >= 2) {
+                    delete state.sideVariants[state.plateSides[0].id];
                     state.plateSides = [...state.plateSides.slice(1), side];
                 } else {
                     state.plateSides.push(side);
                 }
             }
 
-            // Update UI selections
-            document.querySelectorAll('.builder-side-opt').forEach(el => {
-                el.classList.remove('border-black', 'bg-black', 'text-white');
-                el.classList.add('border-black/20', 'text-black');
-            });
+            applySideStyling();
+            updatePlateSummary();
+            renderVariantPickers();
+            checkWarnings();
+            triggerImageGeneration();
+        }
 
+        // --- Variant selection (e.g. Chicken: Poblano / Chipotle / ...) ---
+        function variantOf(item) {
+            if (!item) return '';
+            if (state.plateMain && item.id === state.plateMain.id) return state.mainVariant;
+            return state.sideVariants[item.id] || '';
+        }
+
+        function withVariant(item, variant) {
+            return variant ? `${item.name} (${variant})` : item.name;
+        }
+
+        function renderVariantPickers() {
+            const container = document.getElementById('variant-pickers');
+            const picker = (label, key, variants, current) => `
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider mb-1">${label} &mdash; choose a style:</label>
+                    <select onchange="setVariant('${key}', this.value)" class="w-full border border-black p-2 text-sm bg-white">
+                        <option value="">Select&hellip;</option>
+                        ${variants.map(v => `<option value="${v.replace(/"/g, '&quot;')}" ${v === current ? 'selected' : ''}>${v}</option>`).join('')}
+                    </select>
+                </div>`;
+
+            let html = '';
+            if (state.plateMain && (state.plateMain.variants || []).length) {
+                html += picker(state.plateMain.name, 'main', state.plateMain.variants, state.mainVariant);
+            }
             state.plateSides.forEach(s => {
-                const el = document.getElementById(`side-opt-${s.id}`);
-                if(el) {
-                    el.classList.remove('border-black/20', 'text-black');
-                    el.classList.add('border-black', 'bg-black', 'text-white');
+                if ((s.variants || []).length) {
+                    html += picker(s.name, s.id, s.variants, state.sideVariants[s.id] || '');
                 }
             });
+            container.innerHTML = html;
+            container.classList.toggle('hidden', !html);
+        }
 
+        function setVariant(key, value) {
+            if (key === 'main') state.mainVariant = value;
+            else state.sideVariants[key] = value;
             updatePlateSummary();
-            checkWarnings();
+            validateForm();
             triggerImageGeneration();
         }
 
@@ -602,8 +669,10 @@
         }
 
         function updatePlateSummary() {
-            document.getElementById('summary-main').innerText = state.plateMain ? state.plateMain.name : '-';
-            document.getElementById('summary-sides').innerText = state.plateSides.length > 0 ? state.plateSides.map(s => s.name).join(', ') : '-';
+            document.getElementById('summary-main').innerText = state.plateMain ? withVariant(state.plateMain, state.mainVariant) : '-';
+            document.getElementById('summary-sides').innerText = state.plateSides.length > 0
+                ? state.plateSides.map(s => withVariant(s, state.sideVariants[s.id])).join(', ')
+                : '-';
         }
 
         // --- Photo Gallery ---
@@ -742,7 +811,9 @@
 
             const platesOk = Number.isInteger(plates) && plates > 0;
             const dateOk = state.tastingDate && !isDateBlocked(state.tastingDate) && state.tastingDate > todayYmd();
-            const isValid = state.plateMain && dateOk && name && phoneOk && platesOk &&
+            const variantsOk = (!state.plateMain || !(state.plateMain.variants || []).length || state.mainVariant) &&
+                state.plateSides.every(s => !(s.variants || []).length || state.sideVariants[s.id]);
+            const isValid = state.plateMain && dateOk && name && phoneOk && platesOk && variantsOk &&
                 (state.pairingWarnings.length === 0 || state.acknowledgedWarnings);
 
             if (isValid) {
@@ -765,8 +836,9 @@
 
              typingTimer = setTimeout(() => {
                 try {
-                    const sideNames = state.plateSides.map(s => s.name).join(' and ');
-                    const prompt = `Professional top-down food photography of a white ceramic dinner plate. Food: ${state.plateMain.name}${sideNames ? ` with ${sideNames}` : ''}. Authentic catering presentation, realistic, well-lit.`;
+                    const mainName = state.mainVariant ? `${state.mainVariant} ${state.plateMain.name}` : state.plateMain.name;
+                    const sideNames = state.plateSides.map(s => state.sideVariants[s.id] ? `${state.sideVariants[s.id]} ${s.name}` : s.name).join(' and ');
+                    const prompt = `Professional top-down food photography of a white ceramic dinner plate. Food: ${mainName}${sideNames ? ` with ${sideNames}` : ''}. Authentic catering presentation, realistic, well-lit.`;
 
                     // Using Pollinations AI for keyless, instant image generation
                     const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=400&height=400&nologo=true`;
@@ -829,8 +901,8 @@
                     phone: formatPhone(document.getElementById('contact-phone').value),
                     plates: parseInt(document.getElementById('contact-plates').value, 10),
                     date: state.tastingDate,
-                    entree: state.plateMain.name,
-                    sides: state.plateSides.map(s => s.name)
+                    entree: withVariant(state.plateMain, state.mainVariant),
+                    sides: state.plateSides.map(s => withVariant(s, state.sideVariants[s.id]))
                 });
             } catch (error) {
                 console.error("Failed to submit tasting request", error);
@@ -848,6 +920,8 @@
                 // Reset state
                 state.plateMain = null;
                 state.plateSides = [];
+                state.mainVariant = '';
+                state.sideVariants = {};
                 state.tastingDate = '';
                 document.getElementById('contact-name').value = '';
                 document.getElementById('contact-phone').value = '';
@@ -857,6 +931,7 @@
                 // Reset UI
                 renderBuilderOptions();
                 updatePlateSummary();
+                renderVariantPickers();
                 checkWarnings();
                 resetPlateVisual();
                 renderCalendar();
@@ -913,7 +988,15 @@
                 menuData.items = menuSnap.docs
                     .map(d => {
                         const data = d.data();
-                        return { id: d.id, name: data.name, price: data.price, type: data.type, description: data.description || '', mealServices: data.mealServices || [], available: data.available };
+                        return {
+                            id: d.id,
+                            name: data.name,
+                            price: typeof data.price === 'number' ? data.price : null,
+                            type: data.type,
+                            description: data.description || '',
+                            variants: data.variants || [],
+                            available: data.available
+                        };
                     })
                     .filter(i => i.available !== false);
                 flavorConflicts = conflictSnap.docs.map(d => d.data());
@@ -923,7 +1006,6 @@
                 console.error("Could not load data from Firestore.", error);
                 menuLoadFailed = true;
             }
-            renderServiceFilters();
             renderMenu();
             renderBuilderOptions();
             renderCalendar();
