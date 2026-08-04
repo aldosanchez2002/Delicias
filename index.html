@@ -246,12 +246,16 @@
                         <div class="border border-black bg-gray-100 p-6 sticky top-24">
                             <h3 class="text-2xl font-bold text-black mb-6 text-center uppercase tracking-widest">Your Plate</h3>
 
-                            <div class="w-64 h-64 mx-auto rounded-full bg-white border border-black flex items-center justify-center mb-8 overflow-hidden relative" id="plate-visual">
+                            <div class="w-full aspect-square bg-white border border-black flex flex-col items-center justify-center mb-2 overflow-hidden relative" id="plate-visual">
                                 <span class="text-black/40 font-bold uppercase text-xs" id="plate-empty-text">Empty</span>
                                 <i data-lucide="loader-2" class="h-6 w-6 text-black animate-spin hidden" id="plate-loader"></i>
-                                <canvas width="512" height="512" class="w-full h-full hidden" id="plate-canvas"></canvas>
-                                <i data-lucide="image" class="h-6 w-6 text-black/40 hidden" id="plate-placeholder-icon"></i>
+                                <img src="" alt="" class="w-full h-full object-cover hidden" id="plate-photo">
+                                <div class="hidden flex-col items-center gap-2 px-4 text-center" id="plate-placeholder">
+                                    <i data-lucide="camera-off" class="h-6 w-6 text-black/30"></i>
+                                    <span class="text-[10px] font-bold uppercase tracking-wider text-black/40">No photo of this combination yet</span>
+                                </div>
                             </div>
+                            <p id="plate-caption" class="text-[10px] uppercase tracking-wider text-black/60 mb-6 min-h-[2.5rem] leading-relaxed"></p>
 
                             <div class="mb-6 space-y-2 text-sm">
                                 <div class="flex justify-between border-b border-black/20 pb-1">
@@ -359,6 +363,7 @@
         const menuData = { items: [] };
         let flavorConflicts = [];
         let availabilityRules = [];
+        let platePhotos = [];   // labeled studio photos used for the plate preview
         let menuLoadFailed = false;
 
         // State variables
@@ -569,7 +574,7 @@
             updatePlateSummary();
             renderVariantPickers();
             checkWarnings();
-            stitchPlate();
+            renderPlateVisual();
         }
 
         function toggleSide(sideId) {
@@ -592,7 +597,7 @@
             updatePlateSummary();
             renderVariantPickers();
             checkWarnings();
-            stitchPlate();
+            renderPlateVisual();
         }
 
         // --- Variant selection (e.g. Chicken: Poblano / Chipotle / ...) ---
@@ -635,7 +640,7 @@
             else state.sideVariants[key] = value;
             updatePlateSummary();
             checkWarnings(); // a clash can apply to one style only, so re-check (also validates)
-            stitchPlate();
+            renderPlateVisual();
         }
 
         function checkWarnings() {
@@ -865,118 +870,112 @@
             }
         }
 
-        // --- Plate visual: stitch pre-generated dish photos (PlateBuilderPhotos/)
-        // into plate sectors on a canvas. No AI at request time — each dish has a
-        // stored top-down photo and gets an equal wedge of the plate.
-        const dishImageCache = {};
-        function loadDishImage(src) {
-            if (!dishImageCache[src]) {
-                dishImageCache[src] = new Promise(resolve => {
-                    const img = new Image();
-                    img.onload = () => resolve(img);
-                    img.onerror = () => resolve(null);
-                    img.src = src;
-                });
-            }
-            return dishImageCache[src];
+        // --- Plate visual: show the real studio photo that best matches the plate.
+        // Photos are labeled in label.html and stored in the platePhotos collection.
+        const MAIN_WEIGHT = 3;      // the entree dominates the picture
+        const SIDE_WEIGHT = 1;
+        const STYLE_MATCH = 1;      // same dish, same style
+        const DISH_MATCH = 0.6;     // same dish, different style
+        const EXTRA_PENALTY = 0.25; // per item in the photo the customer did not pick
+
+        function plateSelection() {
+            return {
+                service: state.plateMain && state.plateMain.type === 'taquiza' ? 'taquiza' : 'dinner',
+                mains: state.plateMain ? [{ id: state.plateMain.id, name: state.plateMain.name, variant: state.mainVariant || '' }] : [],
+                sides: state.plateSides.map(s => ({ id: s.id, name: s.name, variant: state.sideVariants[s.id] || '' }))
+            };
         }
 
-        let stitchToken = 0;
-        async function stitchPlate() {
-            if (!state.plateMain) {
-                resetPlateVisual();
+        // Greedily pair each wanted dish with the best unused item in the photo.
+        function scorePhoto(photo, want) {
+            if (photo.service !== want.service) return null;
+            const wantedMainIds = want.mains.map(m => m.id);
+            const photoItems = [...(photo.mains || []), ...(photo.sides || [])];
+            // The entree must be the right dish, or the photo shows the wrong meal
+            if (wantedMainIds.length && !photoItems.some(p => wantedMainIds.includes(p.id))) return null;
+
+            const used = new Set();
+            const diffs = [];
+            let score = 0, best = 0;
+
+            const consider = (wanted, weight) => {
+                best += weight * STYLE_MATCH;
+                let pick = -1, value = 0;
+                photoItems.forEach((p, idx) => {
+                    if (used.has(idx) || p.id !== wanted.id) return;
+                    const v = (p.variant || '') === wanted.variant ? STYLE_MATCH : DISH_MATCH;
+                    if (v > value) { value = v; pick = idx; }
+                });
+                if (pick < 0) { diffs.push(`without ${wanted.name}`); return; }
+                used.add(pick);
+                score += weight * value;
+                if (value < STYLE_MATCH) {
+                    diffs.push(`${wanted.name} shown as ${photoItems[pick].variant || 'plain'}`);
+                }
+            };
+
+            want.mains.forEach(m => consider(m, MAIN_WEIGHT));
+            want.sides.forEach(s => consider(s, SIDE_WEIGHT));
+
+            const extras = photoItems.filter((_, idx) => !used.has(idx));
+            extras.forEach(e => diffs.push(`also shows ${e.name}`));
+            score -= extras.length * EXTRA_PENALTY;
+
+            return { photo, ratio: best ? Math.max(0, score) / best : 0, exact: diffs.length === 0, diffs };
+        }
+
+        function bestPhotoFor(want) {
+            const scored = platePhotos
+                .map(p => scorePhoto(p, want))
+                .filter(Boolean)
+                .sort((a, b) => b.ratio - a.ratio || a.diffs.length - b.diffs.length
+                    || a.photo.file.localeCompare(b.photo.file, undefined, { numeric: true }));
+            return scored[0] || null;
+        }
+
+        function renderPlateVisual() {
+            if (!state.plateMain) { resetPlateVisual(); return; }
+            const match = bestPhotoFor(plateSelection());
+            if (!match) { setPlateVisualPlaceholder(); return; }
+            setPlateVisualLoading();
+            const img = document.getElementById('plate-photo');
+            img.onload = () => { showPlatePhoto(); setPlateCaption(match); };
+            img.onerror = () => setPlateVisualPlaceholder();
+            img.src = match.photo.file;
+            img.alt = match.exact ? 'Your plate' : 'Closest matching plate';
+        }
+
+        function setPlateCaption(match) {
+            const caption = document.getElementById('plate-caption');
+            if (match.exact) {
+                caption.innerHTML = `<span class="font-bold text-black">Your plate</span>`;
                 return;
             }
-            const token = ++stitchToken;
-            setPlateVisualLoading();
+            caption.innerHTML = `<span class="font-bold text-black">Closest match</span> &mdash; ` +
+                match.diffs.slice(0, 3).join(' &bull; ') + (match.diffs.length > 3 ? ' &hellip;' : '');
+        }
 
-            const items = [state.plateMain, ...state.plateSides];
-            // Prefer the chosen variant's photo (e.g. Chicken -> Poblano tile), falling back to the item's default
-            const tileFor = item => {
-                const v = variantOf(item);
-                return (v && item.variantImages && item.variantImages[v]) || item.image;
-            };
-            const images = await Promise.all(items.map(i => {
-                const src = tileFor(i);
-                return src ? loadDishImage(src) : Promise.resolve(null);
-            }));
-            if (token !== stitchToken) return; // selection changed while loading
-
-            const S = 512, C = S / 2, R = S / 2 - 8;
-            const canvas = document.getElementById('plate-canvas');
-            const ctx = canvas.getContext('2d');
-
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(0, 0, S, S);
-
-            // Equal wedges: 2 items = halves, 3 items = thirds
-            const sweep = (Math.PI * 2) / items.length;
-            let angle = -Math.PI / 2;
-            items.forEach((item, idx) => {
-                ctx.save();
-                ctx.beginPath();
-                if (items.length === 1) {
-                    ctx.arc(C, C, R, 0, Math.PI * 2);
-                } else {
-                    ctx.moveTo(C, C);
-                    ctx.arc(C, C, R, angle, angle + sweep);
-                    ctx.closePath();
-                }
-                ctx.clip();
-                if (images[idx]) {
-                    // Zoomed center-crop so any bowl/plate edges in the source photo stay outside the wedge
-                    const Z = 1.5;
-                    ctx.drawImage(images[idx], C - (S * Z) / 2, C - (S * Z) / 2, S * Z, S * Z);
-                } else {
-                    ctx.fillStyle = '#e5e7eb';
-                    ctx.fillRect(0, 0, S, S);
-                }
-                ctx.restore();
-                angle += sweep;
-            });
-
-            // White divider lines between wedges
-            if (items.length > 1) {
-                ctx.strokeStyle = '#ffffff';
-                ctx.lineWidth = 5;
-                let a = -Math.PI / 2;
-                for (let i = 0; i < items.length; i++) {
-                    ctx.beginPath();
-                    ctx.moveTo(C, C);
-                    ctx.lineTo(C + R * Math.cos(a), C + R * Math.sin(a));
-                    ctx.stroke();
-                    a += sweep;
-                }
-            }
-
-            // Plate rim
-            ctx.beginPath(); ctx.arc(C, C, R, 0, Math.PI * 2);
-            ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 12; ctx.stroke();
-            ctx.beginPath(); ctx.arc(C, C, R - 4, 0, Math.PI * 2);
-            ctx.strokeStyle = 'rgba(0,0,0,0.10)'; ctx.lineWidth = 1.5; ctx.stroke();
-
-            showPlateCanvas();
+        function plateVisualState({ empty = false, loading = false, photo = false, placeholder = false }) {
+            document.getElementById('plate-empty-text').classList.toggle('hidden', !empty);
+            document.getElementById('plate-loader').classList.toggle('hidden', !loading);
+            document.getElementById('plate-photo').classList.toggle('hidden', !photo);
+            const ph = document.getElementById('plate-placeholder');
+            ph.classList.toggle('hidden', !placeholder);
+            ph.classList.toggle('flex', placeholder);
         }
 
         function resetPlateVisual() {
-            document.getElementById('plate-empty-text').classList.remove('hidden');
-            document.getElementById('plate-loader').classList.add('hidden');
-            document.getElementById('plate-canvas').classList.add('hidden');
-            document.getElementById('plate-placeholder-icon').classList.add('hidden');
+            plateVisualState({ empty: true });
+            document.getElementById('plate-caption').innerHTML = '';
         }
 
-        function setPlateVisualLoading() {
-            document.getElementById('plate-empty-text').classList.add('hidden');
-            document.getElementById('plate-loader').classList.remove('hidden');
-            document.getElementById('plate-canvas').classList.add('hidden');
-            document.getElementById('plate-placeholder-icon').classList.add('hidden');
-        }
+        function setPlateVisualLoading() { plateVisualState({ loading: true }); }
+        function showPlatePhoto() { plateVisualState({ photo: true }); }
 
-        function showPlateCanvas() {
-            document.getElementById('plate-empty-text').classList.add('hidden');
-            document.getElementById('plate-loader').classList.add('hidden');
-            document.getElementById('plate-canvas').classList.remove('hidden');
-            document.getElementById('plate-placeholder-icon').classList.add('hidden');
+        function setPlateVisualPlaceholder() {
+            plateVisualState({ placeholder: true });
+            document.getElementById('plate-caption').innerHTML =
+                'We have not photographed this combination yet &mdash; your plate is made to order.';
         }
 
         async function submitBooking() {
@@ -1073,10 +1072,11 @@
 
         async function loadAll() {
             try {
-                const [menuSnap, conflictSnap, ruleSnap] = await Promise.all([
+                const [menuSnap, conflictSnap, ruleSnap, photoSnap] = await Promise.all([
                     getDocs(query(collection(db, "menuItems"), orderBy("sortOrder"))),
                     getDocs(collection(db, "flavorConflicts")),
-                    getDocs(collection(db, "availabilityRules"))
+                    getDocs(collection(db, "availabilityRules")),
+                    getDocs(collection(db, "platePhotos"))
                 ]);
 
                 menuData.items = menuSnap.docs
@@ -1089,14 +1089,13 @@
                             type: data.type,
                             description: data.description || '',
                             variants: data.variants || [],
-                            image: data.image || '',
-                            variantImages: data.variantImages || {},
                             available: data.available
                         };
                     })
                     .filter(i => i.available !== false);
                 flavorConflicts = conflictSnap.docs.map(d => d.data());
                 availabilityRules = ruleSnap.docs.map(d => d.data());
+                platePhotos = photoSnap.docs.map(d => d.data()).filter(p => p.usable !== false);
                 menuLoadFailed = menuData.items.length === 0;
             } catch (error) {
                 console.error("Could not load data from Firestore.", error);
