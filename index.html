@@ -63,6 +63,7 @@
                     <button id="nav-home" onclick="switchTab('home')" class="nav-btn transition-colors text-gray-600">Home</button>
                     <button id="nav-services" onclick="switchTab('services')" class="nav-btn transition-colors hover:text-gray-600">Services</button>
                     <button id="nav-menu" onclick="switchTab('menu')" class="nav-btn transition-colors hover:text-gray-600">Menu</button>
+                    <button id="nav-gallery" onclick="switchTab('gallery')" class="nav-btn transition-colors hover:text-gray-600">Gallery</button>
                     <button id="nav-faq" onclick="switchTab('faq')" class="nav-btn transition-colors hover:text-gray-600">FAQ</button>
                     <button onclick="switchTab('builder')" class="bg-black hover:bg-gray-800 text-white px-6 py-2 rounded-none transition-colors flex items-center gap-2">
                         Build Plate
@@ -80,6 +81,7 @@
                 <button onclick="switchTab('home')" class="text-left py-3 border-b border-gray-100">Home</button>
                 <button onclick="switchTab('services')" class="text-left py-3 border-b border-gray-100">Services</button>
                 <button onclick="switchTab('menu')" class="text-left py-3 border-b border-gray-100">Menu</button>
+                <button onclick="switchTab('gallery')" class="text-left py-3 border-b border-gray-100">Gallery</button>
                 <button onclick="switchTab('faq')" class="text-left py-3 border-b border-gray-100">FAQ</button>
                 <button onclick="switchTab('builder')" class="bg-black hover:bg-gray-800 text-white px-4 py-3 mt-3 text-center transition-colors">Build Your Plate</button>
             </div>
@@ -173,6 +175,14 @@
             <div class="space-y-16" id="menu-container">
                 <!-- Menu items populated by JS -->
             </div>
+        </div>
+
+        <div id="view-gallery" class="view-section fade-in py-24 max-w-6xl mx-auto px-4">
+            <div class="text-center mb-12">
+                <h1 class="text-5xl md:text-7xl font-bold text-black mb-2 uppercase tracking-widest">Gallery</h1>
+                <p class="text-sm font-bold uppercase tracking-widest text-black/60">A Taste of Our Work</p>
+            </div>
+            <div id="gallery-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-3"></div>
         </div>
 
         <div id="view-faq" class="view-section fade-in py-24 max-w-4xl mx-auto px-4">
@@ -299,6 +309,14 @@
                     </div>
                 </div>
             </div>
+        </div>
+        <!-- Gallery lightbox overlay -->
+        <div id="lightbox" class="hidden fixed inset-0 z-[60] bg-black/95 flex items-center justify-center" onclick="closeLightbox(event)">
+            <button onclick="event.stopPropagation(); lightboxShift(-1)" aria-label="Previous photo" class="absolute left-1 sm:left-6 text-white text-5xl font-bold px-3 py-2 hover:bg-white/10 transition-colors select-none">&lsaquo;</button>
+            <img id="lightbox-image" src="" alt="Delicias catering photo" class="max-h-[85vh] max-w-[88vw] object-contain" onclick="event.stopPropagation()">
+            <button onclick="event.stopPropagation(); lightboxShift(1)" aria-label="Next photo" class="absolute right-1 sm:right-6 text-white text-5xl font-bold px-3 py-2 hover:bg-white/10 transition-colors select-none">&rsaquo;</button>
+            <button onclick="event.stopPropagation(); closeLightbox()" aria-label="Close gallery" class="absolute top-3 right-3 text-white text-3xl font-bold px-3 py-1 hover:bg-white/10 transition-colors">&times;</button>
+            <span id="lightbox-counter" class="absolute bottom-4 left-1/2 -translate-x-1/2 text-white text-xs font-bold uppercase tracking-widest"></span>
         </div>
     </main>
 
@@ -588,6 +606,47 @@
             document.getElementById('summary-sides').innerText = state.plateSides.length > 0 ? state.plateSides.map(s => s.name).join(', ') : '-';
         }
 
+        // --- Photo Gallery ---
+        const GALLERY_COUNT = 82; // Photos/1.jpg ... Photos/82.jpg
+        let lightboxIndex = 1;
+
+        function renderGallery() {
+            const grid = document.getElementById('gallery-grid');
+            let html = '';
+            for (let i = 1; i <= GALLERY_COUNT; i++) {
+                html += `
+                    <button onclick="openLightbox(${i})" class="aspect-square overflow-hidden border border-black/10 hover:opacity-80 transition-opacity" aria-label="View photo ${i}">
+                        <img src="Photos/${i}.jpg" alt="Delicias catering photo ${i}" loading="lazy" class="w-full h-full object-cover">
+                    </button>`;
+            }
+            grid.innerHTML = html;
+        }
+
+        function openLightbox(i) {
+            lightboxIndex = i;
+            document.getElementById('lightbox-image').src = `Photos/${i}.jpg`;
+            document.getElementById('lightbox-counter').innerText = `${i} / ${GALLERY_COUNT}`;
+            document.getElementById('lightbox').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeLightbox(e) {
+            if (e && e.target !== e.currentTarget) return; // ignore bubbled clicks from children
+            document.getElementById('lightbox').classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+
+        function lightboxShift(dir) {
+            openLightbox(((lightboxIndex - 1 + dir + GALLERY_COUNT) % GALLERY_COUNT) + 1);
+        }
+
+        document.addEventListener('keydown', e => {
+            if (document.getElementById('lightbox').classList.contains('hidden')) return;
+            if (e.key === 'Escape') closeLightbox();
+            if (e.key === 'ArrowLeft') lightboxShift(-1);
+            if (e.key === 'ArrowRight') lightboxShift(1);
+        });
+
         // --- Availability Calendar ---
         function pad2(n) { return String(n).padStart(2, '0'); }
         function ymd(y, m, d) { return `${y}-${pad2(m + 1)}-${pad2(d)}`; }
@@ -816,6 +875,7 @@
         renderMenu();
         renderBuilderOptions();
         renderCalendar();
+        renderGallery();
 
     </script>
 
