@@ -347,6 +347,9 @@
                 </ul>
             </div>
         </div>
+        <div class="max-w-6xl mx-auto px-4 mt-8 pt-4 border-t border-gray-200 text-right">
+            <a href="admin.html" class="text-[10px] uppercase tracking-widest text-black/40 hover:text-black transition-colors">Staff Login</a>
+        </div>
     </footer>
 
     <script>
@@ -640,20 +643,29 @@
             state.acknowledgedWarnings = false;
             document.getElementById('warning-ack').checked = false;
 
-            // Conflicting main+side pairs are defined by the admin (flavorConflicts collection).
-            // A conflict's variant is optional: blank means it applies to every style.
-            if (state.plateMain && state.plateSides.length > 0) {
-                const matches = (want, chosen) => !want || want === chosen;
-                state.plateSides.forEach(side => {
-                    const clash = flavorConflicts.some(c =>
-                        c.mainId === state.plateMain.id && c.sideId === side.id &&
-                        matches(c.mainVariant, state.mainVariant) &&
-                        matches(c.sideVariant, state.sideVariants[side.id] || ''));
+            // Conflicts are admin-defined pairs of any two menu items (flavorConflicts).
+            // They are symmetric, and a blank variant means "any style".
+            const onPlate = [];
+            if (state.plateMain) onPlate.push({ item: state.plateMain, variant: state.mainVariant || '' });
+            state.plateSides.forEach(s => onPlate.push({ item: s, variant: state.sideVariants[s.id] || '' }));
+
+            const hits = (spec, picked) =>
+                spec.id === picked.item.id && (!spec.variant || spec.variant === picked.variant);
+
+            // Check every unordered pair of things on the plate
+            for (let i = 0; i < onPlate.length; i++) {
+                for (let j = i + 1; j < onPlate.length; j++) {
+                    const x = onPlate[i], y = onPlate[j];
+                    const clash = flavorConflicts.some(c => {
+                        const a = { id: c.aId, variant: c.aVariant || '' };
+                        const b = { id: c.bId, variant: c.bVariant || '' };
+                        return (hits(a, x) && hits(b, y)) || (hits(a, y) && hits(b, x));
+                    });
                     if (clash) {
                         state.pairingWarnings.push(
-                            `Note: ${withVariant(side, state.sideVariants[side.id])} may contrast with ${withVariant(state.plateMain, state.mainVariant)}.`);
+                            `Note: ${withVariant(x.item, x.variant)} may contrast with ${withVariant(y.item, y.variant)}.`);
                     }
-                });
+                }
             }
 
             const warningContainer = document.getElementById('warning-container');
