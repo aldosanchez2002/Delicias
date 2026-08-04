@@ -631,7 +631,7 @@
             if (key === 'main') state.mainVariant = value;
             else state.sideVariants[key] = value;
             updatePlateSummary();
-            validateForm();
+            checkWarnings(); // a clash can apply to one style only, so re-check (also validates)
             stitchPlate();
         }
 
@@ -640,13 +640,18 @@
             state.acknowledgedWarnings = false;
             document.getElementById('warning-ack').checked = false;
 
-            // Conflicting main+side pairs are defined by the admin (flavorConflicts collection)
+            // Conflicting main+side pairs are defined by the admin (flavorConflicts collection).
+            // A conflict's variant is optional: blank means it applies to every style.
             if (state.plateMain && state.plateSides.length > 0) {
+                const matches = (want, chosen) => !want || want === chosen;
                 state.plateSides.forEach(side => {
                     const clash = flavorConflicts.some(c =>
-                        c.mainId === state.plateMain.id && c.sideId === side.id);
+                        c.mainId === state.plateMain.id && c.sideId === side.id &&
+                        matches(c.mainVariant, state.mainVariant) &&
+                        matches(c.sideVariant, state.sideVariants[side.id] || ''));
                     if (clash) {
-                        state.pairingWarnings.push(`Note: ${side.name} may contrast with ${state.plateMain.name}.`);
+                        state.pairingWarnings.push(
+                            `Note: ${withVariant(side, state.sideVariants[side.id])} may contrast with ${withVariant(state.plateMain, state.mainVariant)}.`);
                     }
                 });
             }
