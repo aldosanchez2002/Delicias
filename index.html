@@ -297,30 +297,14 @@
     </footer>
 
     <script>
-        // Default menu — used as a fallback when Firestore is empty or unreachable.
-        // The live menu is stored in the Firestore "menuItems" collection (see admin.html).
+        // The menu lives in the Firestore "menuItems" collection (managed via admin.html).
+        // These arrays are populated by loadMenuFromFirestore() below.
         const menuData = {
-            mains: [
-                { id: 'm1', name: 'Carne Asada (Taquiza)', price: 15, category: 'Mexican', description: 'Authentic carne asada, fresh tortillas, salsas.' },
-                { id: 'm2', name: 'Chicken Poblano', price: 14, category: 'Mexican', description: 'Chicken breast in creamy roasted poblano sauce.' },
-                { id: 'm3', name: 'Sliced Brisket', price: 18, category: 'BBQ', description: 'Slow-cooked, tender sliced brisket.' },
-                { id: 'm4', name: 'Red Asado', price: 14, category: 'Mexican', description: 'Traditional pork in rich red chile sauce.' },
-                { id: 'm5', name: 'Spaghetti with Meatballs', price: 12, category: 'Italian', description: 'Classic pasta with savory meatballs.' },
-            ],
-            sides: [
-                { id: 's1', name: 'Charro Beans', price: 3, category: 'Mexican', description: 'Pinto beans simmered with bacon and spices.' },
-                { id: 's2', name: 'Cilantro Lime Rice', price: 3, category: 'Mexican', description: 'Fluffy white rice with fresh cilantro.' },
-                { id: 's3', name: 'Loaded Mashed Potatoes', price: 5, category: 'American', description: 'With bacon, cheese, and chives.' },
-                { id: 's4', name: 'Cambray Potatoes w/ Rosemary', price: 5, category: 'Continental', description: 'Roasted baby potatoes.' },
-                { id: 's5', name: 'Macaroni Salad', price: 4, category: 'American', description: 'Classic creamy cold pasta salad.' },
-                { id: 's6', name: 'Steamed Vegetables', price: 4, category: 'Continental', description: 'Fresh seasonal vegetable medley.' },
-            ],
-            appetizers: [
-                { id: 'a1', name: 'Caprese Skewers', price: 5, description: 'Mozzarella, tomato, basil.' },
-                { id: 'a2', name: 'Mini Burgers', price: 6, description: 'Bite-sized classic sliders.' },
-                { id: 'a3', name: 'Shrimp Cocktail', price: 7, description: 'Served chilled with cocktail sauce.' }
-            ]
+            mains: [],
+            sides: [],
+            appetizers: []
         };
+        let menuLoadFailed = false;
 
         // State variables
         let state = {
@@ -368,6 +352,14 @@
         // --- Render Menu List ---
         function renderMenu() {
             const container = document.getElementById('menu-container');
+
+            if (!menuData.mains.length && !menuData.sides.length && !menuData.appetizers.length) {
+                container.innerHTML = menuLoadFailed
+                    ? `<p class="text-center font-bold uppercase tracking-widest text-black/60">Our menu is temporarily unavailable.<br class="mb-2">Please call us at (915) 555-0199.</p>`
+                    : `<p class="text-center font-bold uppercase tracking-widest text-black/40 animate-pulse">Loading menu&hellip;</p>`;
+                return;
+            }
+
             let html = `
                 <section>
                     <h2 class="text-3xl font-bold text-black border-b-2 border-black pb-2 mb-8 uppercase tracking-widest">Entrees</h2>
@@ -396,6 +388,21 @@
                         `).join('')}
                     </div>
                 </section>
+                ${menuData.appetizers.length ? `
+                <section>
+                    <h2 class="text-3xl font-bold text-black border-b-2 border-black pb-2 mb-8 uppercase tracking-widest">Appetizers</h2>
+                    <div class="grid gap-6">
+                        ${menuData.appetizers.map(item => `
+                            <div class="flex justify-between items-end">
+                                <div>
+                                    <h4 class="font-bold text-lg text-black uppercase tracking-wider">${item.name}</h4>
+                                    <p class="text-sm text-black/70">${item.description}</p>
+                                </div>
+                                <div class="font-bold text-gray-600">$${item.price}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </section>` : ''}
             `;
             container.innerHTML = html;
         }
@@ -404,6 +411,16 @@
         function renderBuilderOptions() {
             // Render Mains
             const mainsContainer = document.getElementById('builder-mains-container');
+
+            if (!menuData.mains.length) {
+                const placeholder = menuLoadFailed
+                    ? `<p class="text-sm font-bold uppercase tracking-wider text-black/60 sm:col-span-2">Menu unavailable — please call (915) 555-0199.</p>`
+                    : `<p class="text-sm font-bold uppercase tracking-wider text-black/40 animate-pulse sm:col-span-2">Loading&hellip;</p>`;
+                mainsContainer.innerHTML = placeholder;
+                document.getElementById('builder-sides-container').innerHTML = '';
+                return;
+            }
+
             mainsContainer.innerHTML = menuData.mains.map(main => `
                 <div onclick="selectMain('${main.id}')" 
                      id="main-opt-${main.id}"
@@ -645,7 +662,6 @@
         async function loadMenuFromFirestore() {
             try {
                 const snap = await getDocs(query(collection(db, "menuItems"), orderBy("sortOrder")));
-                if (snap.empty) return; // keep the built-in fallback menu
 
                 const grouped = { main: [], side: [], appetizer: [] };
                 snap.forEach(docSnap => {
@@ -661,22 +677,16 @@
                     });
                 });
 
-                if (grouped.main.length) menuData.mains = grouped.main;
-                if (grouped.side.length) menuData.sides = grouped.side;
-                if (grouped.appetizer.length) menuData.appetizers = grouped.appetizer;
-
-                // Re-render with live data and clear any selections made against the fallback menu
-                state.plateMain = null;
-                state.plateSides = [];
-                renderMenu();
-                renderBuilderOptions();
-                updatePlateSummary();
-                checkWarnings();
-                resetPlateVisual();
-                document.getElementById('builder-sides-section').classList.add('opacity-50', 'pointer-events-none');
+                menuData.mains = grouped.main;
+                menuData.sides = grouped.side;
+                menuData.appetizers = grouped.appetizer;
+                menuLoadFailed = snap.empty;
             } catch (error) {
-                console.error("Could not load menu from Firestore, using built-in menu.", error);
+                console.error("Could not load menu from Firestore.", error);
+                menuLoadFailed = true;
             }
+            renderMenu();
+            renderBuilderOptions();
         }
 
         loadMenuFromFirestore();
