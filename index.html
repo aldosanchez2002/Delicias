@@ -297,7 +297,8 @@
     </footer>
 
     <script>
-        // Data definition
+        // Default menu — used as a fallback when Firestore is empty or unreachable.
+        // The live menu is stored in the Firestore "menuItems" collection (see admin.html).
         const menuData = {
             mains: [
                 { id: 'm1', name: 'Carne Asada (Taquiza)', price: 15, category: 'Mexican', description: 'Authentic carne asada, fresh tortillas, salsas.' },
@@ -623,6 +624,62 @@
         renderMenu();
         renderBuilderOptions();
 
+    </script>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+        import { getFirestore, collection, query, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyC88JpbLzapZUcV-Y17Y9RUvwYuwSc2Dmw",
+            authDomain: "delicias-4b2b1.firebaseapp.com",
+            projectId: "delicias-4b2b1",
+            storageBucket: "delicias-4b2b1.firebasestorage.app",
+            messagingSenderId: "641583284059",
+            appId: "1:641583284059:web:2801a9160f3333b833a47e"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        async function loadMenuFromFirestore() {
+            try {
+                const snap = await getDocs(query(collection(db, "menuItems"), orderBy("sortOrder")));
+                if (snap.empty) return; // keep the built-in fallback menu
+
+                const grouped = { main: [], side: [], appetizer: [] };
+                snap.forEach(docSnap => {
+                    const d = docSnap.data();
+                    if (d.available === false) return;
+                    if (!grouped[d.type]) return;
+                    grouped[d.type].push({
+                        id: docSnap.id,
+                        name: d.name,
+                        price: d.price,
+                        category: d.category || '',
+                        description: d.description || ''
+                    });
+                });
+
+                if (grouped.main.length) menuData.mains = grouped.main;
+                if (grouped.side.length) menuData.sides = grouped.side;
+                if (grouped.appetizer.length) menuData.appetizers = grouped.appetizer;
+
+                // Re-render with live data and clear any selections made against the fallback menu
+                state.plateMain = null;
+                state.plateSides = [];
+                renderMenu();
+                renderBuilderOptions();
+                updatePlateSummary();
+                checkWarnings();
+                resetPlateVisual();
+                document.getElementById('builder-sides-section').classList.add('opacity-50', 'pointer-events-none');
+            } catch (error) {
+                console.error("Could not load menu from Firestore, using built-in menu.", error);
+            }
+        }
+
+        loadMenuFromFirestore();
     </script>
 </body>
 </html>
