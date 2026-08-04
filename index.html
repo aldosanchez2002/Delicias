@@ -129,7 +129,7 @@
                         <li>&bull; Baby Showers</li>
                         <li>&bull; Birthdays</li>
                         <li>&bull; Reunions</li>
-                        <li>&bull; Houses & Halls</li>
+                        <li>&bull; Halls</li>
                     </ul>
                 </div>
                 <div class="border border-black p-8 bg-white">
@@ -541,35 +541,19 @@
              clearTimeout(typingTimer);
              setPlateVisualLoading();
 
-             typingTimer = setTimeout(async () => {
+             typingTimer = setTimeout(() => {
                 try {
                     const sideNames = state.plateSides.map(s => s.name).join(' and ');
                     const prompt = `Professional top-down food photography of a white ceramic dinner plate. Food: ${state.plateMain.name}${sideNames ? ` with ${sideNames}` : ''}. Authentic catering presentation, realistic, well-lit.`;
                     
-                    const payload = { instances: { prompt }, parameters: { sampleCount: 1 } };
-                    // NOTE: API Key must be provided here for image generation to work
-                    const apiKey = ""; 
+                    // Using Pollinations AI for keyless, instant image generation
+                    const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=400&height=400&nologo=true`;
                     
-                    if(!apiKey) {
-                        console.log("No API key provided, skipping image generation. Using placeholder.");
-                        setPlateVisualPlaceholder();
-                        return;
-                    }
-
-                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${apiKey}`;
+                    const img = new Image();
+                    img.onload = () => setPlateVisualImage(imageUrl);
+                    img.onerror = () => setPlateVisualPlaceholder();
+                    img.src = imageUrl;
                     
-                    const response = await fetch(apiUrl, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-                    
-                    const result = await response.json();
-                    if (result.predictions && result.predictions.length > 0 && result.predictions[0].bytesBase64Encoded) {
-                        setPlateVisualImage(`data:image/png;base64,${result.predictions[0].bytesBase64Encoded}`);
-                    } else {
-                        setPlateVisualPlaceholder();
-                    }
                 } catch (error) {
                     console.error("Image generation failed", error);
                     setPlateVisualPlaceholder();
