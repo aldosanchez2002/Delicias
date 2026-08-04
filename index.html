@@ -268,7 +268,6 @@
                                 </div>
                             </div>
 
-                            <div id="variant-pickers" class="mb-6 space-y-3 hidden"></div>
 
                             <div id="warning-container" class="bg-gray-200 border border-black text-black p-4 mb-6 text-xs flex-col gap-3 hidden">
                                 <span class="font-bold uppercase tracking-wider text-black flex items-center gap-2">
@@ -509,41 +508,54 @@
                 return;
             }
 
-            mainsContainer.innerHTML = mains.map(main => `
+            mainsContainer.innerHTML = mains.map(main => {
+                const selected = state.plateMain && state.plateMain.id === main.id;
+                return `
                 <div onclick="selectMain('${main.id}')"
                      id="main-opt-${main.id}"
-                     class="builder-main-opt cursor-pointer border p-4 transition-colors border-black/20 hover:border-black text-black">
+                     class="builder-main-opt cursor-pointer border p-4 transition-colors ${optionClasses(selected)}">
                     <h4 class="font-bold uppercase tracking-wider text-sm">${main.name}${main.type === 'taquiza' ? ' <span class="font-normal text-xs opacity-60">(Taquiza)</span>' : ''}</h4>
-                </div>
-            `).join('');
+                    ${selected ? variantChips(main, 'main', state.mainVariant) : ''}
+                </div>`;
+            }).join('');
 
             renderBuilderSides();
         }
 
         function renderBuilderSides() {
             const sidesContainer = document.getElementById('builder-sides-container');
-            sidesContainer.innerHTML = builderSides().map(side => `
+            sidesContainer.innerHTML = builderSides().map(side => {
+                const selected = state.plateSides.some(s => s.id === side.id);
+                return `
                 <div onclick="toggleSide('${side.id}')"
                      id="side-opt-${side.id}"
-                     class="builder-side-opt cursor-pointer border p-4 transition-colors border-black/20 hover:border-black text-black">
+                     class="builder-side-opt cursor-pointer border p-4 transition-colors ${optionClasses(selected)}">
                     <h4 class="font-bold uppercase tracking-wider text-xs">${side.name}</h4>
-                </div>
-            `).join('');
-            applySideStyling();
+                    ${selected ? variantChips(side, side.id, state.sideVariants[side.id] || '') : ''}
+                </div>`;
+            }).join('');
         }
 
-        function applySideStyling() {
-            document.querySelectorAll('.builder-side-opt').forEach(el => {
-                el.classList.remove('border-black', 'bg-black', 'text-white');
-                el.classList.add('border-black/20', 'text-black');
-            });
-            state.plateSides.forEach(s => {
-                const el = document.getElementById(`side-opt-${s.id}`);
-                if (el) {
-                    el.classList.remove('border-black/20', 'text-black');
-                    el.classList.add('border-black', 'bg-black', 'text-white');
-                }
-            });
+        function optionClasses(selected) {
+            return selected ? 'border-black bg-black text-white' : 'border-black/20 hover:border-black text-black';
+        }
+
+        // Style choices live inside the option card, so they are visible the
+        // moment a dish is picked rather than off in the summary panel.
+        function variantChips(item, key, current) {
+            const variants = item.variants || [];
+            if (!variants.length) return '';
+            const chips = variants.map((v, i) => `
+                <button type="button" onclick="event.stopPropagation(); setVariantAt('${key}', ${i})"
+                        class="px-2 py-1 text-[10px] font-bold uppercase tracking-wider border transition-colors ${
+                            v === current ? 'bg-white text-black border-white' : 'border-white/40 text-white hover:border-white'}">${v}</button>`).join('');
+            return `
+                <div class="mt-3 pt-3 border-t border-white/25" onclick="event.stopPropagation()">
+                    <p class="text-[10px] font-bold uppercase tracking-wider mb-2 ${current ? 'text-white/50' : 'text-white'}">
+                        ${current ? 'Style' : 'Choose a style'}
+                    </p>
+                    <div class="flex flex-wrap gap-1.5">${chips}</div>
+                </div>`;
         }
 
         function selectMain(mainId) {
@@ -555,24 +567,15 @@
             if (prevType !== state.plateMain.type) {
                 state.plateSides = [];
                 state.sideVariants = {};
-                renderBuilderSides();
             }
 
-            // Update UI selections
-            document.querySelectorAll('.builder-main-opt').forEach(el => {
-                el.classList.remove('border-black', 'bg-black', 'text-white');
-                el.classList.add('border-black/20', 'text-black');
-            });
-            const selectedEl = document.getElementById(`main-opt-${mainId}`);
-            selectedEl.classList.remove('border-black/20', 'text-black');
-            selectedEl.classList.add('border-black', 'bg-black', 'text-white');
+            renderBuilderOptions();
 
             // Enable sides section
             const sidesSection = document.getElementById('builder-sides-section');
             sidesSection.classList.remove('opacity-50', 'pointer-events-none');
 
             updatePlateSummary();
-            renderVariantPickers();
             checkWarnings();
             renderPlateVisual();
         }
@@ -593,9 +596,8 @@
                 }
             }
 
-            applySideStyling();
+            renderBuilderSides();
             updatePlateSummary();
-            renderVariantPickers();
             checkWarnings();
             renderPlateVisual();
         }
@@ -611,33 +613,16 @@
             return variant ? `${item.name} (${variant})` : item.name;
         }
 
-        function renderVariantPickers() {
-            const container = document.getElementById('variant-pickers');
-            const picker = (label, key, variants, current) => `
-                <div>
-                    <label class="block text-xs font-bold uppercase tracking-wider mb-1">${label} &mdash; choose a style:</label>
-                    <select onchange="setVariant('${key}', this.value)" class="w-full border border-black p-2 text-sm bg-white">
-                        <option value="">Select&hellip;</option>
-                        ${variants.map(v => `<option value="${v.replace(/"/g, '&quot;')}" ${v === current ? 'selected' : ''}>${v}</option>`).join('')}
-                    </select>
-                </div>`;
+        // Chips pass an index so dish names containing quotes stay safe in markup
+        function setVariantAt(key, index) {
+            const item = key === 'main' ? state.plateMain : findItem(key);
+            const value = item && (item.variants || [])[index];
+            if (value === undefined) return;
 
-            let html = '';
-            if (state.plateMain && (state.plateMain.variants || []).length) {
-                html += picker(state.plateMain.name, 'main', state.plateMain.variants, state.mainVariant);
-            }
-            state.plateSides.forEach(s => {
-                if ((s.variants || []).length) {
-                    html += picker(s.name, s.id, s.variants, state.sideVariants[s.id] || '');
-                }
-            });
-            container.innerHTML = html;
-            container.classList.toggle('hidden', !html);
-        }
-
-        function setVariant(key, value) {
             if (key === 'main') state.mainVariant = value;
             else state.sideVariants[key] = value;
+
+            renderBuilderOptions();
             updatePlateSummary();
             checkWarnings(); // a clash can apply to one style only, so re-check (also validates)
             renderPlateVisual();
@@ -1024,7 +1009,6 @@
                 // Reset UI
                 renderBuilderOptions();
                 updatePlateSummary();
-                renderVariantPickers();
                 checkWarnings();
                 resetPlateVisual();
                 renderCalendar();
