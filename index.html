@@ -73,7 +73,7 @@
     </nav>
 
     <main class="flex-grow">
-        
+
         <!-- Home View -->
         <div id="view-home" class="view-section active fade-in">
             <div class="bg-white pt-20 pb-24 text-center px-4 flex flex-col items-center">
@@ -152,9 +152,10 @@
         </div>
 
         <div id="view-menu" class="view-section fade-in py-24 max-w-4xl mx-auto px-4">
-             <div class="text-center mb-20">
+             <div class="text-center mb-12">
                 <h1 class="text-6xl md:text-8xl font-bold text-black mb-2 uppercase tracking-widest">Menu</h1>
             </div>
+            <div id="menu-service-filters" class="flex justify-center gap-3 flex-wrap mb-16 hidden"></div>
             <div class="space-y-16" id="menu-container">
                 <!-- Menu items populated by JS -->
             </div>
@@ -197,11 +198,11 @@
         <div id="view-builder" class="view-section fade-in py-12 bg-white min-h-[80vh]">
             <div class="max-w-7xl mx-auto px-4">
                 <h1 class="text-4xl font-bold text-black mb-12 text-center uppercase tracking-widest">Build Plate</h1>
-                
+
                 <div class="flex flex-col lg:flex-row gap-8">
                     <div class="lg:w-2/3 space-y-8">
                         <div>
-                            <h2 class="text-xl font-bold mb-4 text-black uppercase tracking-wider">1. Select Main</h2>
+                            <h2 class="text-xl font-bold mb-4 text-black uppercase tracking-wider">1. Select Entree or Taquiza</h2>
                             <div id="builder-mains-container" class="grid sm:grid-cols-2 gap-2">
                                 <!-- Mains populated by JS -->
                             </div>
@@ -220,7 +221,7 @@
                     <div class="lg:w-1/3">
                         <div class="border border-black bg-gray-100 p-6 sticky top-24">
                             <h3 class="text-2xl font-bold text-black mb-6 text-center uppercase tracking-widest">Your Plate</h3>
-                            
+
                             <div class="w-64 h-64 mx-auto rounded-full bg-white border border-black flex items-center justify-center mb-8 overflow-hidden relative" id="plate-visual">
                                 <span class="text-black/40 font-bold uppercase text-xs" id="plate-empty-text">Empty</span>
                                 <i data-lucide="loader-2" class="h-6 w-6 text-black animate-spin hidden" id="plate-loader"></i>
@@ -250,15 +251,31 @@
                                 </label>
                             </div>
 
+                            <div class="mb-6 border-t border-black/20 pt-4 space-y-3">
+                                <label class="block text-sm font-bold uppercase tracking-wider">Your Info:</label>
+                                <input type="text" id="contact-name" oninput="validateForm()" placeholder="Name" class="w-full border border-black p-2 text-sm bg-white outline-none focus:ring-1 focus:ring-black">
+                                <input type="tel" id="contact-phone" oninput="validateForm()" placeholder="Phone" class="w-full border border-black p-2 text-sm bg-white outline-none focus:ring-1 focus:ring-black">
+                            </div>
+
                             <div class="mb-6 border-t border-black/20 pt-4">
                                 <label class="block text-sm font-bold uppercase tracking-wider mb-2">Tasting Date:</label>
-                                <div class="flex items-center border border-black p-2 bg-white focus-within:ring-1 focus-within:ring-black">
-                                    <i data-lucide="calendar-check" class="h-4 w-4 mr-2 text-gray-500"></i>
-                                    <input type="date" id="tasting-date" onchange="validateForm()" class="w-full bg-transparent outline-none font-['Cardo',_serif] uppercase text-sm">
+                                <div class="border border-black bg-white p-3 select-none">
+                                    <div class="flex justify-between items-center mb-2">
+                                        <button onclick="calShift(-1)" class="px-3 font-bold hover:bg-gray-200 transition-colors">&lsaquo;</button>
+                                        <span id="cal-title" class="text-sm font-bold uppercase tracking-wider"></span>
+                                        <button onclick="calShift(1)" class="px-3 font-bold hover:bg-gray-200 transition-colors">&rsaquo;</button>
+                                    </div>
+                                    <div class="grid grid-cols-7 text-center text-[10px] font-bold uppercase text-black/50 mb-1">
+                                        <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
+                                    </div>
+                                    <div class="grid grid-cols-7 gap-1 text-center" id="cal-grid"></div>
                                 </div>
+                                <p class="text-[10px] uppercase tracking-wider text-black/50 mt-2">Crossed-out dates are unavailable.</p>
+                                <p id="cal-selected" class="text-xs font-bold uppercase tracking-wider mt-1"></p>
                             </div>
 
                             <div id="success-message" class="bg-black text-white p-3 text-center font-bold uppercase hidden">Sent!</div>
+                            <div id="submit-error" class="bg-gray-200 border border-black text-black p-3 text-center text-xs font-bold uppercase hidden mb-3">Something went wrong. Please try again or call us.</div>
                             <button id="submit-btn" onclick="submitBooking()" disabled class="w-full py-3 font-bold uppercase tracking-widest transition-colors bg-gray-200 text-gray-400 cursor-not-allowed">
                                 Request Tasting
                             </button>
@@ -281,7 +298,7 @@
                     <li class="flex items-center gap-2"><i data-lucide="phone" class="h-4 w-4"></i> (915) 555-0199</li>
                     <li class="flex items-center gap-2"><i data-lucide="mail" class="h-4 w-4"></i> info@deliciaskitchen.com</li>
                     <li class="flex items-center gap-2 mt-4 pt-4 border-t border-gray-200">
-                        <i data-lucide="facebook" class="h-4 w-4"></i> 
+                        <i data-lucide="facebook" class="h-4 w-4"></i>
                         <a href="https://www.facebook.com/p/Delicias-Kitchen-Catering-100083303952713/" target="_blank" rel="noreferrer" class="hover:text-gray-600 transition-colors">Facebook</a>
                     </li>
                 </ul>
@@ -297,32 +314,34 @@
     </footer>
 
     <script>
-        // The menu lives in the Firestore "menuItems" collection (managed via admin.html).
-        // These arrays are populated by loadMenuFromFirestore() below.
-        const menuData = {
-            mains: [],
-            sides: [],
-            appetizers: []
-        };
+        // All data lives in Firestore (managed via admin.html) and is loaded by the
+        // module script at the bottom of this file into the variables below.
+        const SERVICES = [['breakfast', 'Breakfast'], ['brunch', 'Brunch'], ['dinner', 'Dinner']];
+        const COURSES = [['entree', 'Entrees'], ['taquiza', 'Taquizas'], ['appetizer', 'Appetizers'], ['side', 'Sides']];
+
+        const menuData = { items: [] };
+        let flavorConflicts = [];
+        let availabilityRules = [];
         let menuLoadFailed = false;
 
         // State variables
+        const _now = new Date();
         let state = {
             activeTab: 'home',
+            menuService: 'all',
             plateMain: null,
             plateSides: [],
             pairingWarnings: [],
             acknowledgedWarnings: false,
-            tastingDate: ''
+            tastingDate: '',
+            calYear: _now.getFullYear(),
+            calMonth: _now.getMonth()
         };
 
         let typingTimer;
 
         // Initialize Icons
         lucide.createIcons();
-
-        // Set min date for date picker
-        document.getElementById('tasting-date').min = new Date().toISOString().split('T')[0];
 
         // --- View Logic ---
         function switchTab(tabId) {
@@ -344,75 +363,91 @@
                 activeBtn.classList.remove('hover:text-gray-600');
                 activeBtn.classList.add('text-gray-600');
             }
-            
+
             // Scroll to top
             window.scrollTo(0, 0);
         }
 
+        // --- Menu helpers ---
+        function builderMains() {
+            return menuData.items.filter(i => i.type === 'entree' || i.type === 'taquiza');
+        }
+        function builderSides() {
+            return menuData.items.filter(i => i.type === 'side');
+        }
+        function findItem(id) {
+            return menuData.items.find(i => i.id === id);
+        }
+
         // --- Render Menu List ---
+        function renderServiceFilters() {
+            const container = document.getElementById('menu-service-filters');
+            const present = SERVICES.filter(([key]) => menuData.items.some(i => (i.mealServices || []).includes(key)));
+            if (present.length === 0) {
+                container.classList.add('hidden');
+                return;
+            }
+            container.classList.remove('hidden');
+            const btn = (key, label) => `
+                <button onclick="setMenuService('${key}')"
+                    class="px-5 py-2 border border-black text-xs font-bold uppercase tracking-widest transition-colors ${state.menuService === key ? 'bg-black text-white' : 'bg-white text-black hover:bg-gray-100'}">
+                    ${label}
+                </button>`;
+            container.innerHTML = btn('all', 'Full Menu') + present.map(([k, l]) => btn(k, l)).join('');
+        }
+
+        function setMenuService(key) {
+            state.menuService = key;
+            renderServiceFilters();
+            renderMenu();
+        }
+
         function renderMenu() {
             const container = document.getElementById('menu-container');
 
-            if (!menuData.mains.length && !menuData.sides.length && !menuData.appetizers.length) {
+            if (!menuData.items.length) {
                 container.innerHTML = menuLoadFailed
                     ? `<p class="text-center font-bold uppercase tracking-widest text-black/60">Our menu is temporarily unavailable.<br class="mb-2">Please call us at (915) 555-0199.</p>`
                     : `<p class="text-center font-bold uppercase tracking-widest text-black/40 animate-pulse">Loading menu&hellip;</p>`;
                 return;
             }
 
-            let html = `
+            const filtered = state.menuService === 'all'
+                ? menuData.items
+                : menuData.items.filter(i => (i.mealServices || []).includes(state.menuService));
+
+            let html = COURSES.map(([type, label]) => {
+                const items = filtered.filter(i => i.type === type);
+                if (!items.length) return '';
+                return `
                 <section>
-                    <h2 class="text-3xl font-bold text-black border-b-2 border-black pb-2 mb-8 uppercase tracking-widest">Entrees</h2>
+                    <h2 class="text-3xl font-bold text-black border-b-2 border-black pb-2 mb-8 uppercase tracking-widest">${label}</h2>
                     <div class="grid gap-6">
-                        ${menuData.mains.map(item => `
+                        ${items.map(item => `
                             <div class="flex justify-between items-end">
                                 <div>
                                     <h4 class="font-bold text-lg text-black uppercase tracking-wider">${item.name}</h4>
-                                    <p class="text-sm text-black/70">${item.description}</p>
+                                    ${item.description ? `<p class="text-sm text-black/70">${item.description}</p>` : ''}
                                 </div>
                                 <div class="font-bold text-gray-600">$${item.price}</div>
                             </div>
                         `).join('')}
                     </div>
-                </section>
-                <section>
-                    <h2 class="text-3xl font-bold text-black border-b-2 border-black pb-2 mb-8 uppercase tracking-widest">Sides</h2>
-                    <div class="grid gap-6">
-                        ${menuData.sides.map(item => `
-                            <div class="flex justify-between items-end">
-                                <div>
-                                    <h4 class="font-bold text-lg text-black uppercase tracking-wider">${item.name}</h4>
-                                </div>
-                                <div class="font-bold text-gray-600">$${item.price}</div>
-                            </div>
-                        `).join('')}
-                    </div>
-                </section>
-                ${menuData.appetizers.length ? `
-                <section>
-                    <h2 class="text-3xl font-bold text-black border-b-2 border-black pb-2 mb-8 uppercase tracking-widest">Appetizers</h2>
-                    <div class="grid gap-6">
-                        ${menuData.appetizers.map(item => `
-                            <div class="flex justify-between items-end">
-                                <div>
-                                    <h4 class="font-bold text-lg text-black uppercase tracking-wider">${item.name}</h4>
-                                    <p class="text-sm text-black/70">${item.description}</p>
-                                </div>
-                                <div class="font-bold text-gray-600">$${item.price}</div>
-                            </div>
-                        `).join('')}
-                    </div>
-                </section>` : ''}
-            `;
+                </section>`;
+            }).join('');
+
+            if (!html) {
+                html = `<p class="text-center font-bold uppercase tracking-widest text-black/60">Nothing on the menu for this service yet — check the full menu.</p>`;
+            }
             container.innerHTML = html;
         }
 
         // --- Builder Logic ---
         function renderBuilderOptions() {
-            // Render Mains
             const mainsContainer = document.getElementById('builder-mains-container');
+            const mains = builderMains();
 
-            if (!menuData.mains.length) {
+            if (!mains.length) {
                 const placeholder = menuLoadFailed
                     ? `<p class="text-sm font-bold uppercase tracking-wider text-black/60 sm:col-span-2">Menu unavailable — please call (915) 555-0199.</p>`
                     : `<p class="text-sm font-bold uppercase tracking-wider text-black/40 animate-pulse sm:col-span-2">Loading&hellip;</p>`;
@@ -421,17 +456,17 @@
                 return;
             }
 
-            mainsContainer.innerHTML = menuData.mains.map(main => `
-                <div onclick="selectMain('${main.id}')" 
+            mainsContainer.innerHTML = mains.map(main => `
+                <div onclick="selectMain('${main.id}')"
                      id="main-opt-${main.id}"
                      class="builder-main-opt cursor-pointer border p-4 transition-colors border-black/20 hover:border-black text-black">
-                    <h4 class="font-bold uppercase tracking-wider text-sm">${main.name}</h4>
+                    <h4 class="font-bold uppercase tracking-wider text-sm">${main.name}${main.type === 'taquiza' ? ' <span class="font-normal text-xs opacity-60">(Taquiza)</span>' : ''}</h4>
                 </div>
             `).join('');
 
             // Render Sides
             const sidesContainer = document.getElementById('builder-sides-container');
-            sidesContainer.innerHTML = menuData.sides.map(side => `
+            sidesContainer.innerHTML = builderSides().map(side => `
                 <div onclick="toggleSide('${side.id}')"
                      id="side-opt-${side.id}"
                      class="builder-side-opt cursor-pointer border p-4 transition-colors border-black/20 hover:border-black text-black">
@@ -441,8 +476,8 @@
         }
 
         function selectMain(mainId) {
-            state.plateMain = menuData.mains.find(m => m.id === mainId);
-            
+            state.plateMain = findItem(mainId);
+
             // Update UI selections
             document.querySelectorAll('.builder-main-opt').forEach(el => {
                 el.classList.remove('border-black', 'bg-black', 'text-white');
@@ -462,7 +497,7 @@
         }
 
         function toggleSide(sideId) {
-            const side = menuData.sides.find(s => s.id === sideId);
+            const side = findItem(sideId);
             const isSelected = state.plateSides.some(s => s.id === sideId);
 
             if (isSelected) {
@@ -480,7 +515,7 @@
                 el.classList.remove('border-black', 'bg-black', 'text-white');
                 el.classList.add('border-black/20', 'text-black');
             });
-            
+
             state.plateSides.forEach(s => {
                 const el = document.getElementById(`side-opt-${s.id}`);
                 if(el) {
@@ -499,16 +534,15 @@
             state.acknowledgedWarnings = false;
             document.getElementById('warning-ack').checked = false;
 
+            // Conflicting cuisine pairs are defined by the admin (flavorConflicts collection)
             if (state.plateMain && state.plateSides.length > 0) {
-                const clashMap = {
-                    'Italian': ['Mexican', 'BBQ'],
-                    'Mexican': ['Italian', 'Continental'],
-                    'Continental': ['Mexican']
-                };
-
+                const mainCat = state.plateMain.category;
                 state.plateSides.forEach(side => {
-                    if (clashMap[state.plateMain.category] && clashMap[state.plateMain.category].includes(side.category)) {
-                        state.pairingWarnings.push(`Note: ${side.name} (${side.category}) may contrast with ${state.plateMain.name} (${state.plateMain.category}).`);
+                    const clash = flavorConflicts.some(c =>
+                        (c.a === mainCat && c.b === side.category) ||
+                        (c.a === side.category && c.b === mainCat));
+                    if (clash) {
+                        state.pairingWarnings.push(`Note: ${side.name} (${side.category}) may contrast with ${state.plateMain.name} (${mainCat}).`);
                     }
                 });
             }
@@ -535,11 +569,77 @@
             document.getElementById('summary-sides').innerText = state.plateSides.length > 0 ? state.plateSides.map(s => s.name).join(', ') : '-';
         }
 
+        // --- Availability Calendar ---
+        function pad2(n) { return String(n).padStart(2, '0'); }
+        function ymd(y, m, d) { return `${y}-${pad2(m + 1)}-${pad2(d)}`; }
+        function todayYmd() {
+            const t = new Date();
+            return ymd(t.getFullYear(), t.getMonth(), t.getDate());
+        }
+
+        // Returns the block reason, or null if the date is open
+        function isDateBlocked(dateStr) {
+            for (const r of availabilityRules) {
+                if (r.kind === 'date' && r.date === dateStr) return r.reason || 'Unavailable';
+                if (r.kind === 'recurring') {
+                    const d = new Date(dateStr + 'T12:00:00');
+                    if (d.getDay() === Number(r.weekday) &&
+                        (!r.startDate || dateStr >= r.startDate) &&
+                        (!r.endDate || dateStr <= r.endDate)) return r.reason || 'Unavailable';
+                }
+            }
+            return null;
+        }
+
+        function calShift(dir) {
+            state.calMonth += dir;
+            if (state.calMonth < 0) { state.calMonth = 11; state.calYear--; }
+            if (state.calMonth > 11) { state.calMonth = 0; state.calYear++; }
+            renderCalendar();
+        }
+
+        function renderCalendar() {
+            const y = state.calYear, m = state.calMonth;
+            document.getElementById('cal-title').innerText =
+                new Date(y, m, 1).toLocaleString('en-US', { month: 'long', year: 'numeric' });
+
+            const firstDow = new Date(y, m, 1).getDay();
+            const daysInMonth = new Date(y, m + 1, 0).getDate();
+            const today = todayYmd();
+
+            let html = '';
+            for (let i = 0; i < firstDow; i++) html += '<span></span>';
+            for (let d = 1; d <= daysInMonth; d++) {
+                const ds = ymd(y, m, d);
+                const reason = isDateBlocked(ds);
+                const isPast = ds <= today; // tastings must be booked for a future date
+                if (isPast || reason) {
+                    html += `<span title="${reason ? reason.replace(/"/g, '&quot;') : ''}" class="py-1 text-sm text-black/30 line-through cursor-not-allowed">${d}</span>`;
+                } else {
+                    const sel = state.tastingDate === ds;
+                    html += `<button onclick="selectDate('${ds}')" class="py-1 text-sm transition-colors ${sel ? 'bg-black text-white font-bold' : 'hover:bg-gray-200'}">${d}</button>`;
+                }
+            }
+            document.getElementById('cal-grid').innerHTML = html;
+            document.getElementById('cal-selected').innerText = state.tastingDate
+                ? 'Selected: ' + new Date(state.tastingDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+                : '';
+        }
+
+        function selectDate(ds) {
+            state.tastingDate = ds;
+            renderCalendar();
+            validateForm();
+        }
+
         function validateForm() {
-            state.tastingDate = document.getElementById('tasting-date').value;
+            const name = document.getElementById('contact-name').value.trim();
+            const phone = document.getElementById('contact-phone').value.trim();
             const btn = document.getElementById('submit-btn');
-            
-            const isValid = state.plateMain && state.tastingDate && (state.pairingWarnings.length === 0 || state.acknowledgedWarnings);
+
+            const dateOk = state.tastingDate && !isDateBlocked(state.tastingDate) && state.tastingDate > todayYmd();
+            const isValid = state.plateMain && dateOk && name && phone &&
+                (state.pairingWarnings.length === 0 || state.acknowledgedWarnings);
 
             if (isValid) {
                 btn.disabled = false;
@@ -563,15 +663,15 @@
                 try {
                     const sideNames = state.plateSides.map(s => s.name).join(' and ');
                     const prompt = `Professional top-down food photography of a white ceramic dinner plate. Food: ${state.plateMain.name}${sideNames ? ` with ${sideNames}` : ''}. Authentic catering presentation, realistic, well-lit.`;
-                    
+
                     // Using Pollinations AI for keyless, instant image generation
                     const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=400&height=400&nologo=true`;
-                    
+
                     const img = new Image();
                     img.onload = () => setPlateVisualImage(imageUrl);
                     img.onerror = () => setPlateVisualPlaceholder();
                     img.src = imageUrl;
-                    
+
                 } catch (error) {
                     console.error("Image generation failed", error);
                     setPlateVisualPlaceholder();
@@ -609,10 +709,33 @@
             document.getElementById('plate-placeholder-icon').classList.remove('hidden');
         }
 
-        function submitBooking() {
+        async function submitBooking() {
             const btn = document.getElementById('submit-btn');
             const successMsg = document.getElementById('success-message');
+            const errMsg = document.getElementById('submit-error');
 
+            errMsg.classList.add('hidden');
+            btn.disabled = true;
+            btn.innerText = 'Sending...';
+
+            try {
+                if (!window.saveTastingRequest) throw new Error('Firestore not ready');
+                await window.saveTastingRequest({
+                    name: document.getElementById('contact-name').value.trim(),
+                    phone: document.getElementById('contact-phone').value.trim(),
+                    date: state.tastingDate,
+                    entree: state.plateMain.name,
+                    sides: state.plateSides.map(s => s.name)
+                });
+            } catch (error) {
+                console.error("Failed to submit tasting request", error);
+                btn.innerText = 'Request Tasting';
+                errMsg.classList.remove('hidden');
+                validateForm();
+                return;
+            }
+
+            btn.innerText = 'Request Tasting';
             btn.classList.add('hidden');
             successMsg.classList.remove('hidden');
 
@@ -621,31 +744,36 @@
                 state.plateMain = null;
                 state.plateSides = [];
                 state.tastingDate = '';
-                document.getElementById('tasting-date').value = '';
-                
+                document.getElementById('contact-name').value = '';
+                document.getElementById('contact-phone').value = '';
+
                 // Reset UI
                 renderBuilderOptions();
                 updatePlateSummary();
                 checkWarnings();
                 resetPlateVisual();
-                
+                renderCalendar();
+                document.getElementById('builder-sides-section').classList.add('opacity-50', 'pointer-events-none');
+
                 btn.classList.remove('hidden');
                 successMsg.classList.add('hidden');
-                
+                validateForm();
+
                 // Go home
                 switchTab('home');
             }, 4000);
         }
 
-        // Initialize App
+        // Initialize App (data arrives via the Firestore module script below)
         renderMenu();
         renderBuilderOptions();
+        renderCalendar();
 
     </script>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-        import { getFirestore, collection, query, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+        import { getFirestore, collection, query, orderBy, getDocs, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyC88JpbLzapZUcV-Y17Y9RUvwYuwSc2Dmw",
@@ -659,37 +787,38 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        async function loadMenuFromFirestore() {
+        window.saveTastingRequest = (payload) =>
+            addDoc(collection(db, "tastingRequests"), {
+                ...payload,
+                status: 'new',
+                createdAt: serverTimestamp()
+            });
+
+        async function loadAll() {
             try {
-                const snap = await getDocs(query(collection(db, "menuItems"), orderBy("sortOrder")));
+                const [menuSnap, conflictSnap, ruleSnap] = await Promise.all([
+                    getDocs(query(collection(db, "menuItems"), orderBy("sortOrder"))),
+                    getDocs(collection(db, "flavorConflicts")),
+                    getDocs(collection(db, "availabilityRules"))
+                ]);
 
-                const grouped = { main: [], side: [], appetizer: [] };
-                snap.forEach(docSnap => {
-                    const d = docSnap.data();
-                    if (d.available === false) return;
-                    if (!grouped[d.type]) return;
-                    grouped[d.type].push({
-                        id: docSnap.id,
-                        name: d.name,
-                        price: d.price,
-                        category: d.category || '',
-                        description: d.description || ''
-                    });
-                });
-
-                menuData.mains = grouped.main;
-                menuData.sides = grouped.side;
-                menuData.appetizers = grouped.appetizer;
-                menuLoadFailed = snap.empty;
+                menuData.items = menuSnap.docs
+                    .map(d => ({ id: d.id, ...d.data() }))
+                    .filter(i => i.available !== false);
+                flavorConflicts = conflictSnap.docs.map(d => d.data());
+                availabilityRules = ruleSnap.docs.map(d => d.data());
+                menuLoadFailed = menuData.items.length === 0;
             } catch (error) {
-                console.error("Could not load menu from Firestore.", error);
+                console.error("Could not load data from Firestore.", error);
                 menuLoadFailed = true;
             }
+            renderServiceFilters();
             renderMenu();
             renderBuilderOptions();
+            renderCalendar();
         }
 
-        loadMenuFromFirestore();
+        loadAll();
     </script>
 </body>
 </html>

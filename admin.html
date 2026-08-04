@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Delicias Admin — Menu Manager</title>
+    <title>Delicias Admin — Manager</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cardo:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -35,75 +35,222 @@
     </nav>
 
     <main class="flex-grow max-w-5xl mx-auto w-full px-4 py-12">
-        <h1 class="text-4xl font-bold text-black mb-2 text-center uppercase tracking-widest">Menu Manager</h1>
-        <p class="text-center text-sm text-black/60 mb-10 uppercase tracking-wider">Add items, set prices, remove items — changes go live immediately</p>
+        <h1 class="text-4xl font-bold text-black mb-10 text-center uppercase tracking-widest">Manager</h1>
+
+        <div class="flex justify-center gap-2 flex-wrap mb-12">
+            <button id="tab-menu" onclick="switchAdminTab('menu')" class="admin-tab border border-black px-5 py-2 text-xs font-bold uppercase tracking-widest transition-colors bg-black text-white">Menu</button>
+            <button id="tab-flavors" onclick="switchAdminTab('flavors')" class="admin-tab border border-black px-5 py-2 text-xs font-bold uppercase tracking-widest transition-colors hover:bg-gray-100">Flavor Pairings</button>
+            <button id="tab-availability" onclick="switchAdminTab('availability')" class="admin-tab border border-black px-5 py-2 text-xs font-bold uppercase tracking-widest transition-colors hover:bg-gray-100">Availability</button>
+            <button id="tab-requests" onclick="switchAdminTab('requests')" class="admin-tab border border-black px-5 py-2 text-xs font-bold uppercase tracking-widest transition-colors hover:bg-gray-100">Requests <span id="requests-count" class="hidden ml-1 bg-white text-black px-1 text-[10px]"></span></button>
+        </div>
 
         <div id="status-banner" class="hidden mb-8 border border-black bg-gray-100 p-4 text-sm font-bold uppercase tracking-wider text-center"></div>
 
-        <!-- Seed prompt (shown only when the collection is empty) -->
-        <div id="seed-panel" class="hidden mb-12 border border-black p-6 bg-gray-100 text-center">
-            <p class="font-bold uppercase tracking-wider mb-4">The database is empty. Load the current site menu as a starting point?</p>
-            <button onclick="seedDefaults()" id="seed-btn" class="bg-black hover:bg-gray-800 text-white px-8 py-3 font-bold uppercase tracking-widest transition-colors">
-                Load Default Menu
-            </button>
+        <!-- ======================= MENU TAB ======================= -->
+        <div id="section-menu" class="admin-section">
+
+            <section class="border border-black p-6 mb-12">
+                <h2 id="item-form-title" class="text-xl font-bold mb-6 uppercase tracking-wider">Add Item</h2>
+                <form id="item-form" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider mb-1">Course</label>
+                        <select id="item-type" class="w-full border border-black p-2 bg-white">
+                            <option value="entree">Entree</option>
+                            <option value="taquiza">Taquiza</option>
+                            <option value="appetizer">Appetizer</option>
+                            <option value="side">Side</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider mb-1">Cuisine (used for pairing alerts)</label>
+                        <select id="item-category" class="w-full border border-black p-2 bg-white">
+                            <option value="">None</option>
+                            <option value="Mexican">Mexican</option>
+                            <option value="BBQ">BBQ</option>
+                            <option value="Italian">Italian</option>
+                            <option value="American">American</option>
+                            <option value="Continental">Continental</option>
+                        </select>
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-bold uppercase tracking-wider mb-1">Served At</label>
+                        <div class="flex gap-6 border border-black p-2 bg-white">
+                            <label class="flex items-center gap-2 text-sm font-bold uppercase cursor-pointer"><input type="checkbox" id="svc-breakfast" class="accent-black w-4 h-4"> Breakfast</label>
+                            <label class="flex items-center gap-2 text-sm font-bold uppercase cursor-pointer"><input type="checkbox" id="svc-brunch" class="accent-black w-4 h-4"> Brunch</label>
+                            <label class="flex items-center gap-2 text-sm font-bold uppercase cursor-pointer"><input type="checkbox" id="svc-dinner" class="accent-black w-4 h-4" checked> Dinner</label>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider mb-1">Name</label>
+                        <input type="text" id="item-name" required placeholder="e.g. Chilaquiles" class="w-full border border-black p-2">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider mb-1">Price ($ per plate)</label>
+                        <input type="number" id="item-price" required min="0" step="0.5" placeholder="0.00" class="w-full border border-black p-2">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-bold uppercase tracking-wider mb-1">Description</label>
+                        <input type="text" id="item-description" placeholder="Short description shown on the menu" class="w-full border border-black p-2">
+                    </div>
+                    <div class="md:col-span-2 flex gap-3">
+                        <button type="submit" id="item-submit-btn" class="flex-grow bg-black hover:bg-gray-800 text-white py-3 font-bold uppercase tracking-widest transition-colors">
+                            Add to Menu
+                        </button>
+                        <button type="button" id="item-cancel-btn" onclick="cancelEdit()" class="hidden border border-black px-6 font-bold uppercase tracking-widest hover:bg-gray-100 transition-colors">
+                            Cancel
+                        </button>
+                    </div>
+                </form>
+            </section>
+
+            <section class="mb-12">
+                <h2 class="text-2xl font-bold border-b-2 border-black pb-2 mb-6 uppercase tracking-widest">Entrees</h2>
+                <div id="list-entree" class="space-y-3"></div>
+            </section>
+            <section class="mb-12">
+                <h2 class="text-2xl font-bold border-b-2 border-black pb-2 mb-6 uppercase tracking-widest">Taquizas</h2>
+                <div id="list-taquiza" class="space-y-3"></div>
+            </section>
+            <section class="mb-12">
+                <h2 class="text-2xl font-bold border-b-2 border-black pb-2 mb-6 uppercase tracking-widest">Appetizers</h2>
+                <div id="list-appetizer" class="space-y-3"></div>
+            </section>
+            <section class="mb-12">
+                <h2 class="text-2xl font-bold border-b-2 border-black pb-2 mb-6 uppercase tracking-widest">Sides</h2>
+                <div id="list-side" class="space-y-3"></div>
+            </section>
         </div>
 
-        <!-- Add item form -->
-        <section class="border border-black p-6 mb-12">
-            <h2 class="text-xl font-bold mb-6 uppercase tracking-wider">Add Item</h2>
-            <form id="add-form" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-xs font-bold uppercase tracking-wider mb-1">Section</label>
-                    <select id="add-type" class="w-full border border-black p-2 bg-white">
-                        <option value="main">Entree (Main)</option>
-                        <option value="side">Side</option>
-                        <option value="appetizer">Appetizer</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-xs font-bold uppercase tracking-wider mb-1">Category</label>
-                    <select id="add-category" class="w-full border border-black p-2 bg-white">
-                        <option value="">None</option>
-                        <option value="Mexican">Mexican</option>
-                        <option value="BBQ">BBQ</option>
-                        <option value="Italian">Italian</option>
-                        <option value="American">American</option>
-                        <option value="Continental">Continental</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-xs font-bold uppercase tracking-wider mb-1">Name</label>
-                    <input type="text" id="add-name" required placeholder="e.g. Chicken Mole" class="w-full border border-black p-2">
-                </div>
-                <div>
-                    <label class="block text-xs font-bold uppercase tracking-wider mb-1">Price ($ per plate)</label>
-                    <input type="number" id="add-price" required min="0" step="0.5" placeholder="0.00" class="w-full border border-black p-2">
-                </div>
-                <div class="md:col-span-2">
-                    <label class="block text-xs font-bold uppercase tracking-wider mb-1">Description</label>
-                    <input type="text" id="add-description" placeholder="Short description shown on the menu" class="w-full border border-black p-2">
-                </div>
-                <div class="md:col-span-2">
-                    <button type="submit" id="add-btn" class="w-full bg-black hover:bg-gray-800 text-white py-3 font-bold uppercase tracking-widest transition-colors">
-                        Add to Menu
+        <!-- ======================= FLAVORS TAB ======================= -->
+        <div id="section-flavors" class="admin-section hidden">
+            <p class="text-sm text-black/70 mb-8 max-w-2xl">
+                When a customer builds a plate that combines two cuisines listed here, they see a
+                <span class="font-bold uppercase">Pairing Alert</span> and must confirm before requesting a tasting.
+            </p>
+            <section class="border border-black p-6 mb-12">
+                <h2 class="text-xl font-bold mb-6 uppercase tracking-wider">Add Conflicting Pair</h2>
+                <div class="flex flex-col md:flex-row gap-4 items-end">
+                    <div class="flex-grow w-full">
+                        <label class="block text-xs font-bold uppercase tracking-wider mb-1">Cuisine A</label>
+                        <select id="conflict-a" class="w-full border border-black p-2 bg-white">
+                            <option value="Mexican">Mexican</option>
+                            <option value="BBQ">BBQ</option>
+                            <option value="Italian">Italian</option>
+                            <option value="American">American</option>
+                            <option value="Continental">Continental</option>
+                        </select>
+                    </div>
+                    <span class="font-bold text-xl hidden md:block pb-1">&times;</span>
+                    <div class="flex-grow w-full">
+                        <label class="block text-xs font-bold uppercase tracking-wider mb-1">Cuisine B</label>
+                        <select id="conflict-b" class="w-full border border-black p-2 bg-white">
+                            <option value="Mexican">Mexican</option>
+                            <option value="BBQ">BBQ</option>
+                            <option value="Italian" selected>Italian</option>
+                            <option value="American">American</option>
+                            <option value="Continental">Continental</option>
+                        </select>
+                    </div>
+                    <button onclick="addConflict()" class="bg-black hover:bg-gray-800 text-white px-8 py-2.5 font-bold uppercase tracking-widest transition-colors w-full md:w-auto">
+                        Add
                     </button>
                 </div>
-            </form>
-        </section>
+            </section>
+            <h2 class="text-2xl font-bold border-b-2 border-black pb-2 mb-6 uppercase tracking-widest">Active Conflicts</h2>
+            <div id="list-conflicts" class="space-y-3"></div>
+        </div>
 
-        <!-- Item lists -->
-        <section class="mb-12">
-            <h2 class="text-2xl font-bold border-b-2 border-black pb-2 mb-6 uppercase tracking-widest">Entrees</h2>
-            <div id="list-main" class="space-y-3"></div>
-        </section>
-        <section class="mb-12">
-            <h2 class="text-2xl font-bold border-b-2 border-black pb-2 mb-6 uppercase tracking-widest">Sides</h2>
-            <div id="list-side" class="space-y-3"></div>
-        </section>
-        <section class="mb-12">
-            <h2 class="text-2xl font-bold border-b-2 border-black pb-2 mb-6 uppercase tracking-widest">Appetizers</h2>
-            <div id="list-appetizer" class="space-y-3"></div>
-        </section>
+        <!-- ======================= AVAILABILITY TAB ======================= -->
+        <div id="section-availability" class="admin-section hidden">
+            <p class="text-sm text-black/70 mb-8 max-w-2xl">
+                Blocked dates cannot be selected by customers on the tasting calendar. Block one-off dates
+                (e.g. "at capacity") or recurring weekdays over a range (e.g. every Tuesday in April).
+            </p>
+
+            <div class="grid md:grid-cols-2 gap-6 mb-12">
+                <section class="border border-black p-6">
+                    <h2 class="text-lg font-bold mb-4 uppercase tracking-wider">Block a Single Date</h2>
+                    <div class="space-y-3">
+                        <div>
+                            <label class="block text-xs font-bold uppercase tracking-wider mb-1">Date</label>
+                            <input type="date" id="block-date" class="w-full border border-black p-2 bg-white">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold uppercase tracking-wider mb-1">Reason</label>
+                            <input type="text" id="block-date-reason" placeholder="e.g. At capacity" class="w-full border border-black p-2">
+                        </div>
+                        <button onclick="addDateRule()" class="w-full bg-black hover:bg-gray-800 text-white py-2.5 font-bold uppercase tracking-widest transition-colors">
+                            Block Date
+                        </button>
+                    </div>
+                </section>
+
+                <section class="border border-black p-6">
+                    <h2 class="text-lg font-bold mb-4 uppercase tracking-wider">Block a Recurring Weekday</h2>
+                    <div class="space-y-3">
+                        <div>
+                            <label class="block text-xs font-bold uppercase tracking-wider mb-1">Every</label>
+                            <select id="block-weekday" class="w-full border border-black p-2 bg-white">
+                                <option value="0">Sunday</option>
+                                <option value="1">Monday</option>
+                                <option value="2" selected>Tuesday</option>
+                                <option value="3">Wednesday</option>
+                                <option value="4">Thursday</option>
+                                <option value="5">Friday</option>
+                                <option value="6">Saturday</option>
+                            </select>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-bold uppercase tracking-wider mb-1">From (optional)</label>
+                                <input type="date" id="block-start" class="w-full border border-black p-2 bg-white">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold uppercase tracking-wider mb-1">To (optional)</label>
+                                <input type="date" id="block-end" class="w-full border border-black p-2 bg-white">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold uppercase tracking-wider mb-1">Reason</label>
+                            <input type="text" id="block-recurring-reason" placeholder="e.g. Closed on Tuesdays" class="w-full border border-black p-2">
+                        </div>
+                        <button onclick="addRecurringRule()" class="w-full bg-black hover:bg-gray-800 text-white py-2.5 font-bold uppercase tracking-widest transition-colors">
+                            Block Weekday
+                        </button>
+                    </div>
+                </section>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-6 mb-12">
+                <div>
+                    <h2 class="text-2xl font-bold border-b-2 border-black pb-2 mb-6 uppercase tracking-widest">Active Blocks</h2>
+                    <div id="list-rules" class="space-y-3"></div>
+                </div>
+                <div>
+                    <h2 class="text-2xl font-bold border-b-2 border-black pb-2 mb-6 uppercase tracking-widest">Preview</h2>
+                    <div class="border border-black bg-white p-4 select-none">
+                        <div class="flex justify-between items-center mb-2">
+                            <button onclick="previewShift(-1)" class="px-3 font-bold hover:bg-gray-200">&lsaquo;</button>
+                            <span id="preview-title" class="text-sm font-bold uppercase tracking-wider"></span>
+                            <button onclick="previewShift(1)" class="px-3 font-bold hover:bg-gray-200">&rsaquo;</button>
+                        </div>
+                        <div class="grid grid-cols-7 text-center text-[10px] font-bold uppercase text-black/50 mb-1">
+                            <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
+                        </div>
+                        <div class="grid grid-cols-7 gap-1 text-center" id="preview-grid"></div>
+                        <p class="text-[10px] uppercase tracking-wider text-black/50 mt-3">Dark = blocked for customers. Hover a blocked day for the reason.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ======================= REQUESTS TAB ======================= -->
+        <div id="section-requests" class="admin-section hidden">
+            <p class="text-sm text-black/70 mb-8 max-w-2xl">
+                Tasting requests submitted from the site's plate builder, newest first.
+            </p>
+            <div id="list-requests" class="space-y-3"></div>
+        </div>
     </main>
 
     <footer class="bg-gray-100 text-black py-6 mt-auto border-t border-gray-200 text-center text-xs uppercase tracking-widest font-bold">
@@ -114,7 +261,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
         import {
             getFirestore, collection, query, orderBy, onSnapshot,
-            addDoc, updateDoc, deleteDoc, doc, serverTimestamp, writeBatch
+            addDoc, updateDoc, deleteDoc, doc, serverTimestamp
         } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
         const firebaseConfig = {
@@ -126,26 +273,57 @@
             appId: "1:641583284059:web:2801a9160f3333b833a47e"
         };
 
+        /*
+         * Firestore schema
+         *
+         * menuItems/          one document per dish
+         *   name         string
+         *   description  string
+         *   price        number    dollars per plate
+         *   category     string    cuisine: Mexican | BBQ | Italian | American | Continental | ""
+         *   type         string    course: entree | taquiza | appetizer | side
+         *   mealServices string[]  any of: breakfast | brunch | dinner
+         *   available    boolean   false hides from the public site without deleting
+         *   sortOrder    number    display order within its course
+         *   createdAt / updatedAt  timestamps
+         *
+         * flavorConflicts/    admin-defined cuisine pairs that trigger the pairing alert
+         *   a, b         string    the two cuisines (symmetric)
+         *
+         * availabilityRules/  dates customers cannot book
+         *   kind         string    "date" | "recurring"
+         *   date         string    YYYY-MM-DD          (kind=date)
+         *   weekday      number    0=Sun ... 6=Sat     (kind=recurring)
+         *   startDate    string    YYYY-MM-DD or ""    (kind=recurring, optional)
+         *   endDate      string    YYYY-MM-DD or ""    (kind=recurring, optional)
+         *   reason       string    shown to customers on the calendar
+         *
+         * tastingRequests/    submitted from the plate builder
+         *   name, phone  string
+         *   date         string    YYYY-MM-DD
+         *   entree       string    dish name
+         *   sides        string[]  dish names
+         *   status       string    "new" | "handled"
+         *   createdAt    timestamp
+         */
+
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const menuRef = collection(db, "menuItems");
+        const conflictsRef = collection(db, "flavorConflicts");
+        const rulesRef = collection(db, "availabilityRules");
+        const requestsRef = collection(db, "tastingRequests");
 
-        /*
-         * Firestore schema — collection "menuItems", one document per item:
-         *   name:        string   — display name
-         *   description: string   — shown under the name on the public menu
-         *   price:       number   — dollars per plate
-         *   category:    string   — "Mexican" | "BBQ" | "Italian" | "American" | "Continental" | ""
-         *                           (used by the plate builder's pairing alerts)
-         *   type:        string   — "main" | "side" | "appetizer" (which menu section)
-         *   available:   boolean  — false hides the item from the public site without deleting it
-         *   sortOrder:   number   — display order within its section
-         *   createdAt:   timestamp
-         *   updatedAt:   timestamp
-         */
+        const COURSES = ["entree", "taquiza", "appetizer", "side"];
+        const SERVICES = ["breakfast", "brunch", "dinner"];
+        const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
-        let items = [];
+        let items = [], conflicts = [], rules = [], requests = [];
+        let editingId = null;
+        const today = new Date();
+        let previewYear = today.getFullYear(), previewMonth = today.getMonth();
 
+        // --- helpers ---
         const banner = document.getElementById('status-banner');
         function showStatus(msg, isError = false) {
             banner.textContent = msg;
@@ -156,32 +334,46 @@
             clearTimeout(showStatus._t);
             showStatus._t = setTimeout(() => banner.classList.add('hidden'), 4000);
         }
-
         function escapeHtml(s) {
             return String(s ?? '').replace(/[&<>"']/g, c => ({
                 '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
             }[c]));
         }
+        function fmtDate(ymd) {
+            if (!ymd) return '';
+            return new Date(ymd + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        }
+        function pad(n) { return String(n).padStart(2, '0'); }
 
-        function renderLists() {
-            const byType = { main: [], side: [], appetizer: [] };
-            items.forEach(item => { if (byType[item.type]) byType[item.type].push(item); });
+        window.switchAdminTab = (tab) => {
+            document.querySelectorAll('.admin-section').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`section-${tab}`).classList.remove('hidden');
+            document.querySelectorAll('.admin-tab').forEach(b => b.classList.remove('bg-black', 'text-white'));
+            document.getElementById(`tab-${tab}`).classList.add('bg-black', 'text-white');
+        };
 
-            for (const type of Object.keys(byType)) {
+        // ======================= MENU =======================
+        function renderItems() {
+            for (const type of COURSES) {
+                const list = items.filter(i => i.type === type);
                 const container = document.getElementById(`list-${type}`);
-                if (byType[type].length === 0) {
+                if (!list.length) {
                     container.innerHTML = `<p class="text-sm text-black/50 uppercase tracking-wider">No items yet.</p>`;
                     continue;
                 }
-                container.innerHTML = byType[type].map(item => `
+                container.innerHTML = list.map(item => {
+                    const services = (item.mealServices || []).map(s =>
+                        `<span class="border border-black/40 px-1.5 py-0.5 text-[10px] font-bold uppercase">${escapeHtml(s)}</span>`).join(' ');
+                    return `
                     <div class="border border-black/30 p-4 flex flex-col md:flex-row md:items-center gap-4 ${item.available === false ? 'bg-gray-100 opacity-60' : 'bg-white'}">
                         <div class="flex-grow">
-                            <h4 class="font-bold uppercase tracking-wider">${escapeHtml(item.name)}
-                                ${item.category ? `<span class="ml-2 text-xs font-normal text-black/60">[${escapeHtml(item.category)}]</span>` : ''}
+                            <h4 class="font-bold uppercase tracking-wider flex items-center gap-2 flex-wrap">${escapeHtml(item.name)}
+                                ${item.category ? `<span class="text-xs font-normal text-black/60">[${escapeHtml(item.category)}]</span>` : ''}
+                                ${services}
                             </h4>
                             <p class="text-sm text-black/70">${escapeHtml(item.description)}</p>
                         </div>
-                        <div class="flex items-center gap-3 flex-shrink-0">
+                        <div class="flex items-center gap-2 flex-shrink-0 flex-wrap">
                             <label class="flex items-center gap-1 text-xs font-bold uppercase cursor-pointer" title="Uncheck to hide from the public menu without deleting">
                                 <input type="checkbox" ${item.available === false ? '' : 'checked'}
                                     onchange="setAvailable('${item.id}', this.checked)" class="accent-black w-4 h-4">
@@ -189,144 +381,317 @@
                             </label>
                             <div class="flex items-center border border-black bg-white">
                                 <span class="pl-2 text-sm font-bold">$</span>
-                                <input type="number" min="0" step="0.5" value="${item.price}"
-                                    id="price-${item.id}" class="w-20 p-2 text-sm">
+                                <input type="number" min="0" step="0.5" value="${item.price}" id="price-${item.id}" class="w-20 p-2 text-sm">
                             </div>
-                            <button onclick="savePrice('${item.id}')"
-                                class="bg-black hover:bg-gray-800 text-white px-4 py-2 text-xs font-bold uppercase tracking-wider transition-colors">
-                                Save
-                            </button>
-                            <button onclick="removeItem('${item.id}', '${escapeHtml(item.name).replace(/'/g, "\\'")}')"
-                                class="border border-black hover:bg-black hover:text-white px-3 py-2 text-xs font-bold uppercase tracking-wider transition-colors">
-                                Delete
-                            </button>
+                            <button onclick="savePrice('${item.id}')" class="bg-black hover:bg-gray-800 text-white px-3 py-2 text-xs font-bold uppercase tracking-wider transition-colors">Save</button>
+                            <button onclick="startEdit('${item.id}')" class="border border-black hover:bg-gray-100 px-3 py-2 text-xs font-bold uppercase tracking-wider transition-colors">Edit</button>
+                            <button onclick="removeItem('${item.id}')" class="border border-black hover:bg-black hover:text-white px-3 py-2 text-xs font-bold uppercase tracking-wider transition-colors">Delete</button>
                         </div>
-                    </div>
-                `).join('');
+                    </div>`;
+                }).join('');
             }
-            lucide.createIcons();
         }
 
-        // Live subscription — keeps the page in sync as items change
-        onSnapshot(query(menuRef, orderBy("sortOrder")), snap => {
-            items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-            document.getElementById('seed-panel').classList.toggle('hidden', !snap.empty);
-            renderLists();
-        }, err => {
-            console.error(err);
-            showStatus("Could not connect to the database. Check your Firestore rules.", true);
-        });
-
-        // --- Actions (exposed for inline onclick handlers) ---
-
-        document.getElementById('add-form').addEventListener('submit', async e => {
+        document.getElementById('item-form').addEventListener('submit', async e => {
             e.preventDefault();
-            const name = document.getElementById('add-name').value.trim();
-            const price = parseFloat(document.getElementById('add-price').value);
+            const name = document.getElementById('item-name').value.trim();
+            const price = parseFloat(document.getElementById('item-price').value);
             if (!name || isNaN(price) || price < 0) {
                 showStatus("Name and a valid price are required.", true);
                 return;
             }
-            const type = document.getElementById('add-type').value;
-            const maxSort = Math.max(0, ...items.filter(i => i.type === type).map(i => i.sortOrder || 0));
+            const type = document.getElementById('item-type').value;
+            const data = {
+                name,
+                price,
+                type,
+                category: document.getElementById('item-category').value,
+                mealServices: SERVICES.filter(s => document.getElementById(`svc-${s}`).checked),
+                description: document.getElementById('item-description').value.trim(),
+                updatedAt: serverTimestamp()
+            };
             try {
-                await addDoc(menuRef, {
-                    name,
-                    price,
-                    type,
-                    category: document.getElementById('add-category').value,
-                    description: document.getElementById('add-description').value.trim(),
-                    available: true,
-                    sortOrder: maxSort + 10,
-                    createdAt: serverTimestamp(),
-                    updatedAt: serverTimestamp()
-                });
-                document.getElementById('add-form').reset();
-                showStatus(`Added "${name}".`);
+                if (editingId) {
+                    await updateDoc(doc(db, "menuItems", editingId), data);
+                    showStatus(`Updated "${name}".`);
+                    cancelEdit();
+                } else {
+                    const maxSort = Math.max(0, ...items.filter(i => i.type === type).map(i => i.sortOrder || 0));
+                    await addDoc(menuRef, { ...data, available: true, sortOrder: maxSort + 10, createdAt: serverTimestamp() });
+                    showStatus(`Added "${name}".`);
+                    document.getElementById('item-form').reset();
+                    document.getElementById('svc-dinner').checked = true;
+                }
             } catch (err) {
                 console.error(err);
-                showStatus("Failed to add item.", true);
+                showStatus("Save failed. Check your connection and Firestore rules.", true);
             }
         });
 
+        window.startEdit = (id) => {
+            const item = items.find(i => i.id === id);
+            if (!item) return;
+            editingId = id;
+            document.getElementById('item-type').value = item.type;
+            document.getElementById('item-category').value = item.category || '';
+            document.getElementById('item-name').value = item.name;
+            document.getElementById('item-price').value = item.price;
+            document.getElementById('item-description').value = item.description || '';
+            SERVICES.forEach(s => document.getElementById(`svc-${s}`).checked = (item.mealServices || []).includes(s));
+            document.getElementById('item-form-title').textContent = `Editing: ${item.name}`;
+            document.getElementById('item-submit-btn').textContent = 'Save Changes';
+            document.getElementById('item-cancel-btn').classList.remove('hidden');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        };
+
+        window.cancelEdit = () => {
+            editingId = null;
+            document.getElementById('item-form').reset();
+            document.getElementById('svc-dinner').checked = true;
+            document.getElementById('item-form-title').textContent = 'Add Item';
+            document.getElementById('item-submit-btn').textContent = 'Add to Menu';
+            document.getElementById('item-cancel-btn').classList.add('hidden');
+        };
+
         window.savePrice = async (id) => {
             const price = parseFloat(document.getElementById(`price-${id}`).value);
-            if (isNaN(price) || price < 0) {
-                showStatus("Enter a valid price.", true);
-                return;
-            }
+            if (isNaN(price) || price < 0) { showStatus("Enter a valid price.", true); return; }
             try {
                 await updateDoc(doc(db, "menuItems", id), { price, updatedAt: serverTimestamp() });
                 showStatus("Price updated.");
-            } catch (err) {
-                console.error(err);
-                showStatus("Failed to update price.", true);
-            }
+            } catch (err) { console.error(err); showStatus("Failed to update price.", true); }
         };
 
         window.setAvailable = async (id, available) => {
             try {
                 await updateDoc(doc(db, "menuItems", id), { available, updatedAt: serverTimestamp() });
                 showStatus(available ? "Item is live." : "Item hidden from public menu.");
-            } catch (err) {
-                console.error(err);
-                showStatus("Failed to update item.", true);
-            }
+            } catch (err) { console.error(err); showStatus("Failed to update item.", true); }
         };
 
-        window.removeItem = async (id, name) => {
-            if (!confirm(`Delete "${name}" from the menu? This cannot be undone.`)) return;
+        window.removeItem = async (id) => {
+            const item = items.find(i => i.id === id);
+            if (!item || !confirm(`Delete "${item.name}" from the menu? This cannot be undone.`)) return;
             try {
                 await deleteDoc(doc(db, "menuItems", id));
-                showStatus(`Deleted "${name}".`);
-            } catch (err) {
-                console.error(err);
-                showStatus("Failed to delete item.", true);
-            }
+                if (editingId === id) cancelEdit();
+                showStatus(`Deleted "${item.name}".`);
+            } catch (err) { console.error(err); showStatus("Failed to delete item.", true); }
         };
 
-        // --- One-time seed from the original hardcoded site menu ---
-        const defaultMenu = [
-            { type: 'main', name: 'Carne Asada (Taquiza)', price: 15, category: 'Mexican', description: 'Authentic carne asada, fresh tortillas, salsas.' },
-            { type: 'main', name: 'Chicken Poblano', price: 14, category: 'Mexican', description: 'Chicken breast in creamy roasted poblano sauce.' },
-            { type: 'main', name: 'Sliced Brisket', price: 18, category: 'BBQ', description: 'Slow-cooked, tender sliced brisket.' },
-            { type: 'main', name: 'Red Asado', price: 14, category: 'Mexican', description: 'Traditional pork in rich red chile sauce.' },
-            { type: 'main', name: 'Spaghetti with Meatballs', price: 12, category: 'Italian', description: 'Classic pasta with savory meatballs.' },
-            { type: 'side', name: 'Charro Beans', price: 3, category: 'Mexican', description: 'Pinto beans simmered with bacon and spices.' },
-            { type: 'side', name: 'Cilantro Lime Rice', price: 3, category: 'Mexican', description: 'Fluffy white rice with fresh cilantro.' },
-            { type: 'side', name: 'Loaded Mashed Potatoes', price: 5, category: 'American', description: 'With bacon, cheese, and chives.' },
-            { type: 'side', name: 'Cambray Potatoes w/ Rosemary', price: 5, category: 'Continental', description: 'Roasted baby potatoes.' },
-            { type: 'side', name: 'Macaroni Salad', price: 4, category: 'American', description: 'Classic creamy cold pasta salad.' },
-            { type: 'side', name: 'Steamed Vegetables', price: 4, category: 'Continental', description: 'Fresh seasonal vegetable medley.' },
-            { type: 'appetizer', name: 'Caprese Skewers', price: 5, category: '', description: 'Mozzarella, tomato, basil.' },
-            { type: 'appetizer', name: 'Mini Burgers', price: 6, category: '', description: 'Bite-sized classic sliders.' },
-            { type: 'appetizer', name: 'Shrimp Cocktail', price: 7, category: '', description: 'Served chilled with cocktail sauce.' }
-        ];
+        // ======================= FLAVOR CONFLICTS =======================
+        function renderConflicts() {
+            const container = document.getElementById('list-conflicts');
+            if (!conflicts.length) {
+                container.innerHTML = `<p class="text-sm text-black/50 uppercase tracking-wider">No conflicts defined — customers will never see a pairing alert.</p>`;
+                return;
+            }
+            container.innerHTML = conflicts.map(c => `
+                <div class="border border-black/30 p-4 flex items-center justify-between bg-white">
+                    <span class="font-bold uppercase tracking-wider">${escapeHtml(c.a)} <span class="text-black/50 mx-1">&times;</span> ${escapeHtml(c.b)}</span>
+                    <button onclick="removeConflict('${c.id}')" class="border border-black hover:bg-black hover:text-white px-3 py-2 text-xs font-bold uppercase tracking-wider transition-colors">Delete</button>
+                </div>`).join('');
+        }
 
-        window.seedDefaults = async () => {
-            const btn = document.getElementById('seed-btn');
-            btn.disabled = true;
-            btn.textContent = 'Loading...';
+        window.addConflict = async () => {
+            const a = document.getElementById('conflict-a').value;
+            const b = document.getElementById('conflict-b').value;
+            if (a === b) { showStatus("Pick two different cuisines.", true); return; }
+            const exists = conflicts.some(c => (c.a === a && c.b === b) || (c.a === b && c.b === a));
+            if (exists) { showStatus("That pair already exists.", true); return; }
             try {
-                const batch = writeBatch(db);
-                defaultMenu.forEach((item, i) => {
-                    batch.set(doc(menuRef), {
-                        ...item,
-                        available: true,
-                        sortOrder: (i + 1) * 10,
-                        createdAt: serverTimestamp(),
-                        updatedAt: serverTimestamp()
-                    });
-                });
-                await batch.commit();
-                showStatus("Default menu loaded.");
-            } catch (err) {
-                console.error(err);
-                showStatus("Failed to seed the menu.", true);
-                btn.disabled = false;
-                btn.textContent = 'Load Default Menu';
-            }
+                await addDoc(conflictsRef, { a, b, createdAt: serverTimestamp() });
+                showStatus(`Added conflict: ${a} × ${b}.`);
+            } catch (err) { console.error(err); showStatus("Failed to add conflict.", true); }
         };
+
+        window.removeConflict = async (id) => {
+            try {
+                await deleteDoc(doc(db, "flavorConflicts", id));
+                showStatus("Conflict removed.");
+            } catch (err) { console.error(err); showStatus("Failed to remove conflict.", true); }
+        };
+
+        // ======================= AVAILABILITY =======================
+        function describeRule(r) {
+            if (r.kind === 'date') return `${fmtDate(r.date)} — ${escapeHtml(r.reason || 'Blocked')}`;
+            let range = '';
+            if (r.startDate && r.endDate) range = `, ${fmtDate(r.startDate)} – ${fmtDate(r.endDate)}`;
+            else if (r.startDate) range = `, from ${fmtDate(r.startDate)}`;
+            else if (r.endDate) range = `, until ${fmtDate(r.endDate)}`;
+            return `Every ${WEEKDAYS[r.weekday]}${range} — ${escapeHtml(r.reason || 'Blocked')}`;
+        }
+
+        function isDateBlocked(dateStr) {
+            for (const r of rules) {
+                if (r.kind === 'date' && r.date === dateStr) return r.reason || 'Unavailable';
+                if (r.kind === 'recurring') {
+                    const d = new Date(dateStr + 'T12:00:00');
+                    if (d.getDay() === Number(r.weekday) &&
+                        (!r.startDate || dateStr >= r.startDate) &&
+                        (!r.endDate || dateStr <= r.endDate)) return r.reason || 'Unavailable';
+                }
+            }
+            return null;
+        }
+
+        function renderRules() {
+            const container = document.getElementById('list-rules');
+            if (!rules.length) {
+                container.innerHTML = `<p class="text-sm text-black/50 uppercase tracking-wider">No blocks — every future date is open.</p>`;
+            } else {
+                container.innerHTML = rules.map(r => `
+                    <div class="border border-black/30 p-4 flex items-center justify-between gap-4 bg-white">
+                        <span class="font-bold uppercase tracking-wider text-sm">${describeRule(r)}</span>
+                        <button onclick="removeRule('${r.id}')" class="border border-black hover:bg-black hover:text-white px-3 py-2 text-xs font-bold uppercase tracking-wider transition-colors flex-shrink-0">Delete</button>
+                    </div>`).join('');
+            }
+            renderPreview();
+        }
+
+        function renderPreview() {
+            const y = previewYear, m = previewMonth;
+            document.getElementById('preview-title').textContent =
+                new Date(y, m, 1).toLocaleString('en-US', { month: 'long', year: 'numeric' });
+            const first = new Date(y, m, 1).getDay();
+            const days = new Date(y, m + 1, 0).getDate();
+            let html = '';
+            for (let i = 0; i < first; i++) html += '<span></span>';
+            for (let d = 1; d <= days; d++) {
+                const ds = `${y}-${pad(m + 1)}-${pad(d)}`;
+                const reason = isDateBlocked(ds);
+                html += reason
+                    ? `<span title="${escapeHtml(reason)}" class="py-1 text-sm bg-black text-white cursor-help">${d}</span>`
+                    : `<span class="py-1 text-sm">${d}</span>`;
+            }
+            document.getElementById('preview-grid').innerHTML = html;
+        }
+
+        window.previewShift = (dir) => {
+            previewMonth += dir;
+            if (previewMonth < 0) { previewMonth = 11; previewYear--; }
+            if (previewMonth > 11) { previewMonth = 0; previewYear++; }
+            renderPreview();
+        };
+
+        window.addDateRule = async () => {
+            const date = document.getElementById('block-date').value;
+            if (!date) { showStatus("Pick a date to block.", true); return; }
+            try {
+                await addDoc(rulesRef, {
+                    kind: 'date',
+                    date,
+                    reason: document.getElementById('block-date-reason').value.trim() || 'Unavailable',
+                    createdAt: serverTimestamp()
+                });
+                document.getElementById('block-date').value = '';
+                document.getElementById('block-date-reason').value = '';
+                showStatus(`Blocked ${fmtDate(date)}.`);
+            } catch (err) { console.error(err); showStatus("Failed to add block.", true); }
+        };
+
+        window.addRecurringRule = async () => {
+            const startDate = document.getElementById('block-start').value;
+            const endDate = document.getElementById('block-end').value;
+            if (startDate && endDate && startDate > endDate) {
+                showStatus("'From' must be before 'To'.", true);
+                return;
+            }
+            const weekday = Number(document.getElementById('block-weekday').value);
+            try {
+                await addDoc(rulesRef, {
+                    kind: 'recurring',
+                    weekday,
+                    startDate: startDate || '',
+                    endDate: endDate || '',
+                    reason: document.getElementById('block-recurring-reason').value.trim() || 'Unavailable',
+                    createdAt: serverTimestamp()
+                });
+                document.getElementById('block-start').value = '';
+                document.getElementById('block-end').value = '';
+                document.getElementById('block-recurring-reason').value = '';
+                showStatus(`Blocked every ${WEEKDAYS[weekday]}.`);
+            } catch (err) { console.error(err); showStatus("Failed to add block.", true); }
+        };
+
+        window.removeRule = async (id) => {
+            try {
+                await deleteDoc(doc(db, "availabilityRules", id));
+                showStatus("Block removed.");
+            } catch (err) { console.error(err); showStatus("Failed to remove block.", true); }
+        };
+
+        // ======================= REQUESTS =======================
+        function renderRequests() {
+            const container = document.getElementById('list-requests');
+            const newCount = requests.filter(r => r.status === 'new').length;
+            const countEl = document.getElementById('requests-count');
+            countEl.textContent = newCount;
+            countEl.classList.toggle('hidden', newCount === 0);
+
+            if (!requests.length) {
+                container.innerHTML = `<p class="text-sm text-black/50 uppercase tracking-wider">No tasting requests yet.</p>`;
+                return;
+            }
+            container.innerHTML = requests.map(r => {
+                const handled = r.status === 'handled';
+                const submitted = r.createdAt?.toDate ? r.createdAt.toDate().toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+                return `
+                <div class="border ${handled ? 'border-black/20 bg-gray-100 opacity-70' : 'border-black bg-white'} p-4 flex flex-col md:flex-row md:items-center gap-4">
+                    <div class="flex-grow">
+                        <h4 class="font-bold uppercase tracking-wider">
+                            ${fmtDate(r.date)}
+                            <span class="ml-2 px-1.5 py-0.5 text-[10px] ${handled ? 'border border-black/40' : 'bg-black text-white'}">${handled ? 'Handled' : 'New'}</span>
+                        </h4>
+                        <p class="text-sm font-bold">${escapeHtml(r.name)} &bull; ${escapeHtml(r.phone)}</p>
+                        <p class="text-sm text-black/70">${escapeHtml(r.entree)}${(r.sides || []).length ? ' with ' + escapeHtml(r.sides.join(', ')) : ''}</p>
+                        ${submitted ? `<p class="text-[10px] uppercase tracking-wider text-black/50 mt-1">Submitted ${submitted}</p>` : ''}
+                    </div>
+                    <div class="flex items-center gap-2 flex-shrink-0">
+                        <button onclick="toggleRequest('${r.id}', ${handled ? 'false' : 'true'})" class="border border-black hover:bg-gray-100 px-3 py-2 text-xs font-bold uppercase tracking-wider transition-colors">
+                            ${handled ? 'Reopen' : 'Mark Handled'}
+                        </button>
+                        <button onclick="removeRequest('${r.id}')" class="border border-black hover:bg-black hover:text-white px-3 py-2 text-xs font-bold uppercase tracking-wider transition-colors">Delete</button>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        window.toggleRequest = async (id, handled) => {
+            try {
+                await updateDoc(doc(db, "tastingRequests", id), { status: handled ? 'handled' : 'new' });
+            } catch (err) { console.error(err); showStatus("Failed to update request.", true); }
+        };
+
+        window.removeRequest = async (id) => {
+            if (!confirm("Delete this tasting request?")) return;
+            try {
+                await deleteDoc(doc(db, "tastingRequests", id));
+                showStatus("Request deleted.");
+            } catch (err) { console.error(err); showStatus("Failed to delete request.", true); }
+        };
+
+        // ======================= LIVE SUBSCRIPTIONS =======================
+        const onErr = err => {
+            console.error(err);
+            showStatus("Could not connect to the database. Check your Firestore rules.", true);
+        };
+        onSnapshot(query(menuRef, orderBy("sortOrder")), snap => {
+            items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            renderItems();
+        }, onErr);
+        onSnapshot(conflictsRef, snap => {
+            conflicts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            renderConflicts();
+        }, onErr);
+        onSnapshot(query(rulesRef, orderBy("createdAt")), snap => {
+            rules = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            renderRules();
+        }, onErr);
+        onSnapshot(query(requestsRef, orderBy("createdAt", "desc")), snap => {
+            requests = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            renderRequests();
+        }, onErr);
 
         lucide.createIcons();
     </script>
