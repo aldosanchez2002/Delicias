@@ -278,8 +278,10 @@
          *   reason       string    shown to customers on the calendar
          *
          * tastingRequests/    submitted from the plate builder
-         *   name, phone  string
-         *   date         string    YYYY-MM-DD
+         *   name         string
+         *   phone        string    normalized to (XXX) XXX-XXXX
+         *   plates       number    customer's estimated plate count
+         *   date         string    event date, YYYY-MM-DD
          *   entree       string    dish name
          *   sides        string[]  dish names
          *   status       string    "new" | "handled"
@@ -646,11 +648,11 @@
                 <div class="border ${handled ? 'border-black/20 bg-gray-100 opacity-70' : 'border-black bg-white'} p-4 flex flex-col md:flex-row md:items-center gap-4">
                     <div class="flex-grow">
                         <h4 class="font-bold uppercase tracking-wider">
-                            ${fmtDate(r.date)}
+                            Event: ${fmtDate(r.date)}
                             <span class="ml-2 px-1.5 py-0.5 text-[10px] ${handled ? 'border border-black/40' : 'bg-black text-white'}">${handled ? 'Handled' : 'New'}</span>
                         </h4>
                         <p class="text-sm font-bold">${escapeHtml(r.name)} &bull; ${escapeHtml(r.phone)}</p>
-                        <p class="text-sm text-black/70">${escapeHtml(r.entree)}${(r.sides || []).length ? ' with ' + escapeHtml(r.sides.join(', ')) : ''}</p>
+                        <p class="text-sm text-black/70">${escapeHtml(r.entree)}${(r.sides || []).length ? ' with ' + escapeHtml(r.sides.join(', ')) : ''}${r.plates ? ` &bull; est. ${Number(r.plates)} plates` : ''}</p>
                         ${submitted ? `<p class="text-[10px] uppercase tracking-wider text-black/50 mt-1">Submitted ${submitted}</p>` : ''}
                     </div>
                     <div class="flex items-center gap-2 flex-shrink-0">

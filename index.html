@@ -108,7 +108,7 @@
                     </p>
                 </div>
                 <button onclick="switchTab('builder')" class="bg-black hover:bg-gray-800 text-white px-8 py-4 rounded-none font-bold uppercase tracking-wider transition-colors">
-                    Build Your Menu
+                    Build Your Plate
                 </button>
             </div>
             <div class="bg-gray-100 py-4 border-y border-gray-200">
@@ -170,34 +170,34 @@
             <div class="space-y-10 max-w-2xl mx-auto">
                 <div>
                     <p class="font-bold text-lg text-black mb-1"><span class="text-gray-600">Q-</span> What happens with the leftover food?</p>
-                    <p class="text-black/80"><span class="text-gray-600 font-bold">A-</span> All food will be covered and left for you to keep.</p>
+                    <p class="text-black/80"><span class="text-gray-600 font-bold">A-</span> All remaining food is covered and left with you to keep.</p>
                 </div>
                 <div>
-                    <p class="font-bold text-lg text-black mb-1"><span class="text-gray-600">Q-</span> Can I still change the menu?</p>
-                    <p class="text-black/80"><span class="text-gray-600 font-bold">A-</span> Yes, if you notify us 2 weeks before.</p>
+                    <p class="font-bold text-lg text-black mb-1"><span class="text-gray-600">Q-</span> Can I still change my menu after booking?</p>
+                    <p class="text-black/80"><span class="text-gray-600 font-bold">A-</span> Yes — menu changes are welcome with at least two weeks' notice.</p>
                 </div>
                 <div>
-                    <p class="font-bold text-lg text-black mb-1"><span class="text-gray-600">Q-</span> My guests haven't arrived but the catering 1 hr service has ended, can you still serve ?</p>
-                    <p class="text-black/80"><span class="text-gray-600 font-bold">A-</span> No, unless you pay the extra hour fee ($120.00).</p>
+                    <p class="font-bold text-lg text-black mb-1"><span class="text-gray-600">Q-</span> What if my guests arrive after the one-hour service window has ended?</p>
+                    <p class="text-black/80"><span class="text-gray-600 font-bold">A-</span> Service can be extended for an additional-hour fee of $120.00.</p>
                 </div>
                 <div>
-                    <p class="font-bold text-lg text-black mb-1"><span class="text-gray-600">Q-</span> Can I bring an extra side and you serve it?</p>
-                    <p class="text-black/80"><span class="text-gray-600 font-bold">A-</span> No, we will only serve our own food that you purchased.</p>
+                    <p class="font-bold text-lg text-black mb-1"><span class="text-gray-600">Q-</span> Can you serve a dish that I provide?</p>
+                    <p class="text-black/80"><span class="text-gray-600 font-bold">A-</span> For quality and food-safety reasons, we serve only dishes prepared by our kitchen.</p>
                 </div>
                 <div>
-                    <p class="font-bold text-lg text-black mb-1"><span class="text-gray-600">Q-</span> Can I provide my own plates and utensils? If so will the price change?</p>
-                    <p class="text-black/80"><span class="text-gray-600 font-bold">A-</span> Yes, you can provide your own plates and utensils. No, price wont change.</p>
+                    <p class="font-bold text-lg text-black mb-1"><span class="text-gray-600">Q-</span> Can I provide my own plates and utensils? Will the price change?</p>
+                    <p class="text-black/80"><span class="text-gray-600 font-bold">A-</span> You are welcome to provide your own plates and utensils — pricing remains the same.</p>
                 </div>
                 <div>
                     <p class="font-bold text-lg text-black mb-1"><span class="text-gray-600">Q-</span> Do you offer tastings?</p>
-                    <p class="text-black/80"><span class="text-gray-600 font-bold">A-</span> Yes we do! They're priced as listed on the menu.</p>
+                    <p class="text-black/80"><span class="text-gray-600 font-bold">A-</span> Yes — tastings are available and priced as listed on the menu.</p>
                 </div>
             </div>
         </div>
 
         <div id="view-builder" class="view-section fade-in py-12 bg-white min-h-[80vh]">
             <div class="max-w-7xl mx-auto px-4">
-                <h1 class="text-4xl font-bold text-black mb-12 text-center uppercase tracking-widest">Build Plate</h1>
+                <h1 class="text-4xl font-bold text-black mb-12 text-center uppercase tracking-widest">Build Your Plate</h1>
 
                 <div class="flex flex-col lg:flex-row gap-8">
                     <div class="lg:w-2/3 space-y-8">
@@ -252,13 +252,15 @@
                             </div>
 
                             <div class="mb-6 border-t border-black/20 pt-4 space-y-3">
-                                <label class="block text-sm font-bold uppercase tracking-wider">Your Info:</label>
-                                <input type="text" id="contact-name" oninput="validateForm()" placeholder="Name" class="w-full border border-black p-2 text-sm bg-white outline-none focus:ring-1 focus:ring-black">
-                                <input type="tel" id="contact-phone" oninput="validateForm()" placeholder="Phone" class="w-full border border-black p-2 text-sm bg-white outline-none focus:ring-1 focus:ring-black">
+                                <label class="block text-sm font-bold uppercase tracking-wider">Contact Details:</label>
+                                <input type="text" id="contact-name" oninput="validateForm()" placeholder="Full name" class="w-full border border-black p-2 text-sm bg-white outline-none focus:ring-1 focus:ring-black">
+                                <input type="tel" id="contact-phone" oninput="validateForm()" placeholder="Phone, e.g. (915) 555-0199" class="w-full border border-black p-2 text-sm bg-white outline-none focus:ring-1 focus:ring-black">
+                                <p id="phone-error" class="text-[10px] uppercase tracking-wider text-black/60 hidden">Please enter a valid 10-digit phone number.</p>
+                                <input type="number" id="contact-plates" min="1" step="1" oninput="validateForm()" placeholder="Estimated # of plates" class="w-full border border-black p-2 text-sm bg-white outline-none focus:ring-1 focus:ring-black">
                             </div>
 
                             <div class="mb-6 border-t border-black/20 pt-4">
-                                <label class="block text-sm font-bold uppercase tracking-wider mb-2">Tasting Date:</label>
+                                <label class="block text-sm font-bold uppercase tracking-wider mb-2">Event Date:</label>
                                 <div class="border border-black bg-white p-3 select-none">
                                     <div class="flex justify-between items-center mb-2">
                                         <button onclick="calShift(-1)" class="px-3 font-bold hover:bg-gray-200 transition-colors">&lsaquo;</button>
@@ -274,8 +276,8 @@
                                 <p id="cal-selected" class="text-xs font-bold uppercase tracking-wider mt-1"></p>
                             </div>
 
-                            <div id="success-message" class="bg-black text-white p-3 text-center font-bold uppercase hidden">Sent!</div>
-                            <div id="submit-error" class="bg-gray-200 border border-black text-black p-3 text-center text-xs font-bold uppercase hidden mb-3">Something went wrong. Please try again or call us.</div>
+                            <div id="success-message" class="bg-black text-white p-3 text-center text-sm font-bold uppercase tracking-wider hidden">Request received — we will be in touch shortly.</div>
+                            <div id="submit-error" class="bg-gray-200 border border-black text-black p-3 text-center text-xs font-bold uppercase tracking-wider hidden mb-3">Something went wrong. Please try again or call (915) 555-0199.</div>
                             <button id="submit-btn" onclick="submitBooking()" disabled class="w-full py-3 font-bold uppercase tracking-widest transition-colors bg-gray-200 text-gray-400 cursor-not-allowed">
                                 Request Tasting
                             </button>
@@ -306,8 +308,8 @@
             <div>
                 <h4 class="font-bold mb-4 uppercase text-xs tracking-widest">Hours</h4>
                 <ul class="space-y-2 text-sm font-medium">
-                    <li>Mon - Fri: 9AM - 6PM</li>
-                    <li>Events: Any Day</li>
+                    <li>Mon &ndash; Fri: 9 AM &ndash; 6 PM</li>
+                    <li>Events: Seven Days a Week</li>
                 </ul>
             </div>
         </div>
@@ -630,13 +632,32 @@
             validateForm();
         }
 
+        // Accepts 10 digits, or 11 starting with 1, in any common format
+        function phoneDigits(raw) {
+            let d = raw.replace(/\D/g, '');
+            if (d.length === 11 && d.startsWith('1')) d = d.slice(1);
+            return d;
+        }
+        function isPhoneValid(raw) {
+            return /^\d{10}$/.test(phoneDigits(raw));
+        }
+        function formatPhone(raw) {
+            const d = phoneDigits(raw);
+            return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`;
+        }
+
         function validateForm() {
             const name = document.getElementById('contact-name').value.trim();
             const phone = document.getElementById('contact-phone').value.trim();
+            const plates = parseInt(document.getElementById('contact-plates').value, 10);
             const btn = document.getElementById('submit-btn');
 
+            const phoneOk = isPhoneValid(phone);
+            document.getElementById('phone-error').classList.toggle('hidden', phoneOk || !phone);
+
+            const platesOk = Number.isInteger(plates) && plates > 0;
             const dateOk = state.tastingDate && !isDateBlocked(state.tastingDate) && state.tastingDate > todayYmd();
-            const isValid = state.plateMain && dateOk && name && phone &&
+            const isValid = state.plateMain && dateOk && name && phoneOk && platesOk &&
                 (state.pairingWarnings.length === 0 || state.acknowledgedWarnings);
 
             if (isValid) {
@@ -720,7 +741,8 @@
                 if (!window.saveTastingRequest) throw new Error('Firestore not ready');
                 await window.saveTastingRequest({
                     name: document.getElementById('contact-name').value.trim(),
-                    phone: document.getElementById('contact-phone').value.trim(),
+                    phone: formatPhone(document.getElementById('contact-phone').value),
+                    plates: parseInt(document.getElementById('contact-plates').value, 10),
                     date: state.tastingDate,
                     entree: state.plateMain.name,
                     sides: state.plateSides.map(s => s.name)
@@ -744,6 +766,8 @@
                 state.tastingDate = '';
                 document.getElementById('contact-name').value = '';
                 document.getElementById('contact-phone').value = '';
+                document.getElementById('contact-plates').value = '';
+                document.getElementById('phone-error').classList.add('hidden');
 
                 // Reset UI
                 renderBuilderOptions();
