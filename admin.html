@@ -66,6 +66,8 @@
                             <option value="taquiza">Taquiza</option>
                             <option value="taquizaSide">Taquiza — Side</option>
                             <option value="brunch">Brunch Package</option>
+                            <option value="kids">Kids — Entree</option>
+                            <option value="kidsSide">Kids — Side</option>
                             <option value="appetizer">Appetizer</option>
                         </select>
                     </div>
@@ -123,6 +125,14 @@
             <section class="mb-12">
                 <h2 class="text-2xl font-bold border-b-2 border-black pb-2 mb-6 uppercase tracking-widest">Brunch Packages</h2>
                 <div id="list-brunch" class="space-y-3"></div>
+            </section>
+            <section class="mb-12">
+                <h2 class="text-2xl font-bold border-b-2 border-black pb-2 mb-6 uppercase tracking-widest">Kids &mdash; Entrees</h2>
+                <div id="list-kids" class="space-y-3"></div>
+            </section>
+            <section class="mb-12">
+                <h2 class="text-2xl font-bold border-b-2 border-black pb-2 mb-6 uppercase tracking-widest">Kids &mdash; Sides</h2>
+                <div id="list-kidsSide" class="space-y-3"></div>
             </section>
             <section class="mb-12">
                 <h2 class="text-2xl font-bold border-b-2 border-black pb-2 mb-6 uppercase tracking-widest">Appetizers</h2>
@@ -324,7 +334,7 @@
         const rulesRef = collection(db, "availabilityRules");
         const requestsRef = collection(db, "tastingRequests");
 
-        const COURSES = ["entree", "side", "salad", "taquiza", "taquizaSide", "brunch", "appetizer"];
+        const COURSES = ["entree", "side", "salad", "taquiza", "taquizaSide", "brunch", "kids", "kidsSide", "appetizer"];
         const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
         let items = [], conflicts = [], rules = [], requests = [];
