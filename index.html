@@ -534,15 +534,13 @@
             state.acknowledgedWarnings = false;
             document.getElementById('warning-ack').checked = false;
 
-            // Conflicting cuisine pairs are defined by the admin (flavorConflicts collection)
+            // Conflicting main+side pairs are defined by the admin (flavorConflicts collection)
             if (state.plateMain && state.plateSides.length > 0) {
-                const mainCat = state.plateMain.category;
                 state.plateSides.forEach(side => {
                     const clash = flavorConflicts.some(c =>
-                        (c.a === mainCat && c.b === side.category) ||
-                        (c.a === side.category && c.b === mainCat));
+                        c.mainId === state.plateMain.id && c.sideId === side.id);
                     if (clash) {
-                        state.pairingWarnings.push(`Note: ${side.name} (${side.category}) may contrast with ${state.plateMain.name} (${mainCat}).`);
+                        state.pairingWarnings.push(`Note: ${side.name} may contrast with ${state.plateMain.name}.`);
                     }
                 });
             }
@@ -803,7 +801,10 @@
                 ]);
 
                 menuData.items = menuSnap.docs
-                    .map(d => ({ id: d.id, ...d.data() }))
+                    .map(d => {
+                        const data = d.data();
+                        return { id: d.id, name: data.name, price: data.price, type: data.type, description: data.description || '', mealServices: data.mealServices || [], available: data.available };
+                    })
                     .filter(i => i.available !== false);
                 flavorConflicts = conflictSnap.docs.map(d => d.data());
                 availabilityRules = ruleSnap.docs.map(d => d.data());
