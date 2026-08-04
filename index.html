@@ -850,7 +850,15 @@
             setPlateVisualLoading();
 
             const items = [state.plateMain, ...state.plateSides];
-            const images = await Promise.all(items.map(i => i.image ? loadDishImage(i.image) : Promise.resolve(null)));
+            // Prefer the chosen variant's photo (e.g. Chicken -> Poblano tile), falling back to the item's default
+            const tileFor = item => {
+                const v = variantOf(item);
+                return (v && item.variantImages && item.variantImages[v]) || item.image;
+            };
+            const images = await Promise.all(items.map(i => {
+                const src = tileFor(i);
+                return src ? loadDishImage(src) : Promise.resolve(null);
+            }));
             if (token !== stitchToken) return; // selection changed while loading
 
             const S = 512, C = S / 2, R = S / 2 - 8;
@@ -1041,6 +1049,7 @@
                             description: data.description || '',
                             variants: data.variants || [],
                             image: data.image || '',
+                            variantImages: data.variantImages || {},
                             available: data.available
                         };
                     })
