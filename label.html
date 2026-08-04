@@ -34,9 +34,10 @@
 
     <main class="flex-grow max-w-6xl mx-auto w-full px-4 py-8">
         <p class="text-sm text-black/70 mb-6 max-w-3xl">
-            Temporary tool. For each studio photo, choose the entree or taquiza and every side shown on the plate,
-            then save. Labeled photos are shown to customers whose plate matches. Bread rolls and salsa are
-            included with every package &mdash; no need to label them.
+            Temporary tool. For each studio photo, pick the kind of plate, then check every item shown on it.
+            Entrees are optional &mdash; leave them unchecked for a sides-only or salad-only photo. Labeled photos
+            are shown to customers whose plate matches. Bread rolls and salsa come with every package, so there
+            is no need to label them.
         </p>
 
         <div id="status-banner" class="hidden mb-6 border border-black bg-gray-100 p-3 text-sm font-bold uppercase tracking-wider text-center"></div>
@@ -171,8 +172,10 @@
                 </button>`).join('');
         }
 
-        // Multi-select row used for both entrees and sides
+        // Multi-select row used for both entrees and sides. Styles are checkboxes, not a
+        // dropdown, so one photo can show several styles of the same dish.
         function pickRow(prefix, item) {
+            const vars = item.variants || [];
             return `
                 <div class="border border-black/20 p-2">
                     <label class="flex items-center gap-2 cursor-pointer">
@@ -180,11 +183,14 @@
                         <span class="font-bold uppercase tracking-wider text-sm">${esc(item.name)}</span>
                         <span class="text-[10px] uppercase text-black/50 border border-black/30 px-1">${TYPE_BADGE[item.type] || item.type}</span>
                     </label>
-                    ${(item.variants || []).length ? `
-                        <select id="${prefix}-var-${item.id}" class="hidden w-full border border-black p-1 mt-2 text-sm bg-white">
-                            <option value="">Style&hellip;</option>
-                            ${item.variants.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join('')}
-                        </select>` : ''}
+                    ${vars.length ? `
+                        <div id="${prefix}-vars-${item.id}" class="hidden mt-2 pl-6 flex flex-wrap gap-x-4 gap-y-1">
+                            ${vars.map((v, vi) => `
+                                <label class="flex items-center gap-1 cursor-pointer text-xs font-bold uppercase tracking-wider">
+                                    <input type="checkbox" id="${prefix}-var-${item.id}-${vi}" onchange="onVariantToggle()" class="accent-black w-3.5 h-3.5">
+                                    ${esc(v)}
+                                </label>`).join('')}
+                        </div>` : ''}
                 </div>`;
         }
 
@@ -200,7 +206,8 @@
                 return;
             }
 
-            document.getElementById('mains-heading').textContent = `2. ${cfg.mainsLabel} on the plate`;
+            document.getElementById('mains-heading').textContent =
+                `2. ${cfg.mainsLabel} on the plate` + (cfg.sideTypes.length ? ' (optional)' : '');
             document.getElementById('mains-list').innerHTML =
                 itemsOfTypes(cfg.mainTypes).map(i => pickRow('main', i)).join('')
                 || `<p class="text-sm text-black/50 uppercase tracking-wider">No items for this service yet.</p>`;
@@ -264,26 +271,41 @@
         }
 
         function applyPicks(prefix, picks) {
-            const chosen = {};
-            picks.forEach(p => { chosen[p.id] = p.variant || ''; });
-            document.querySelectorAll(`#${prefix}s-list input[type=checkbox]`).forEach(cb => {
-                const id = cb.id.slice(prefix.length + 1);
-                cb.checked = Object.prototype.hasOwnProperty.call(chosen, id);
-                const sel = document.getElementById(`${prefix}-var-${id}`);
-                if (sel) {
-                    sel.classList.toggle('hidden', !cb.checked);
-                    sel.value = chosen[id] || '';
-                }
-            });
+            const cfg = SERVICES[service];
+            if (!cfg) return;
+            const types = prefix === 'main' ? cfg.mainTypes : cfg.sideTypes;
+            // A dish appears once per style it was labeled with, so group them by dish
+            const byId = {};
+            picks.forEach(p => { (byId[p.id] = byId[p.id] || []).push(p.variant || ''); });
+
+            for (const item of itemsOfTypes(types)) {
+                const cb = document.getElementById(`${prefix}-${item.id}`);
+                if (!cb) continue;
+                const chosen = byId[item.id];
+                cb.checked = !!chosen;
+                const wrap = document.getElementById(`${prefix}-vars-${item.id}`);
+                if (!wrap) continue;
+                wrap.classList.toggle('hidden', !cb.checked);
+                (item.variants || []).forEach((v, vi) => {
+                    const vb = document.getElementById(`${prefix}-var-${item.id}-${vi}`);
+                    if (vb) vb.checked = !!chosen && chosen.includes(v);
+                });
+            }
         }
+
+        window.onVariantToggle = () => { userTouched = true; };
 
         window.onPickToggle = (prefix, id) => {
             userTouched = true;
-            const sel = document.getElementById(`${prefix}-var-${id}`);
-            if (sel) sel.classList.toggle('hidden', !document.getElementById(`${prefix}-${id}`).checked);
+            const cb = document.getElementById(`${prefix}-${id}`);
+            const wrap = document.getElementById(`${prefix}-vars-${id}`);
+            if (!wrap) return;
+            wrap.classList.toggle('hidden', !cb.checked);
+            if (!cb.checked) wrap.querySelectorAll('input').forEach(v => { v.checked = false; });
         };
 
-        // Collects checked rows from one list, returning null if a style is missing
+        // Collects checked rows from one list as one entry per chosen style,
+        // returning null if a dish is checked with no style picked.
         function collectPicks(prefix) {
             const cfg = SERVICES[service];
             const types = prefix === 'main' ? cfg.mainTypes : cfg.sideTypes;
@@ -291,13 +313,18 @@
             for (const item of itemsOfTypes(types)) {
                 const cb = document.getElementById(`${prefix}-${item.id}`);
                 if (!cb || !cb.checked) continue;
-                const variant = (item.variants || []).length
-                    ? document.getElementById(`${prefix}-var-${item.id}`).value : '';
-                if ((item.variants || []).length && !variant) {
-                    showStatus(`Choose a style for ${item.name}.`, true);
+                const vars = item.variants || [];
+                if (!vars.length) {
+                    out.push({ id: item.id, name: item.name, variant: '' });
+                    continue;
+                }
+                const chosen = vars.filter((v, vi) =>
+                    document.getElementById(`${prefix}-var-${item.id}-${vi}`).checked);
+                if (!chosen.length) {
+                    showStatus(`Choose at least one style for ${item.name}.`, true);
                     return null;
                 }
-                out.push({ id: item.id, name: item.name, variant });
+                chosen.forEach(v => out.push({ id: item.id, name: item.name, variant: v }));
             }
             return out;
         }
@@ -314,12 +341,14 @@
 
             const pickedMains = collectPicks('main');
             if (pickedMains === null) return;
-            if (!pickedMains.length) {
-                showStatus(`Choose at least one ${SERVICES[service].mainsLabel.replace(/e?s$/, '').toLowerCase()}.`, true);
-                return;
-            }
             const pickedSides = collectPicks('side');
             if (pickedSides === null) return;
+            // Entrees are optional — some photos show only sides or a salad — but a
+            // label with nothing on the plate is meaningless.
+            if (!pickedMains.length && !pickedSides.length) {
+                showStatus("Select at least one item shown on the plate.", true);
+                return;
+            }
 
             try {
                 await setDoc(doc(db, "platePhotos", file), {
