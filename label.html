@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Delicias Admin — Label Plate Photos</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cardo:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Cardo', serif;
+            background-color: white;
+            color: black;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+        input, select { outline: none; }
+    </style>
+</head>
+<body class="selection:bg-gray-200">
+
+    <nav class="bg-white text-black shadow-sm sticky top-0 z-50 border-b border-gray-200">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16 gap-4">
+                <span class="font-bold text-lg sm:text-2xl tracking-widest uppercase">Delicias <span class="text-gray-500">Label</span></span>
+                <div class="flex items-center gap-4">
+                    <span id="progress" class="text-xs font-bold uppercase tracking-wider text-black/60"></span>
+                    <a href="admin.html" class="uppercase tracking-wider text-xs font-bold hover:text-gray-600 transition-colors">Admin</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="flex-grow max-w-6xl mx-auto w-full px-4 py-8">
+        <p class="text-sm text-black/70 mb-6 max-w-3xl">
+            Temporary tool. For each studio photo, choose the entree or taquiza and every side shown on the plate,
+            then save. Labeled photos are shown to customers whose plate matches. Bread rolls and salsa are
+            included with every package &mdash; no need to label them.
+        </p>
+
+        <div id="status-banner" class="hidden mb-6 border border-black bg-gray-100 p-3 text-sm font-bold uppercase tracking-wider text-center"></div>
+
+        <div class="grid lg:grid-cols-2 gap-8 items-start">
+            <!-- Photo -->
+            <div class="lg:sticky lg:top-24">
+                <div class="border border-black bg-white p-2">
+                    <img id="photo" src="" alt="Plate photo" class="w-full aspect-square object-contain bg-gray-50">
+                </div>
+                <div class="flex items-center justify-between mt-3 gap-3">
+                    <button onclick="go(-1)" class="border border-black px-5 py-2 text-xs font-bold uppercase tracking-widest hover:bg-gray-100 transition-colors">&lsaquo; Prev</button>
+                    <span id="photo-index" class="text-xs font-bold uppercase tracking-wider"></span>
+                    <button onclick="go(1)" class="border border-black px-5 py-2 text-xs font-bold uppercase tracking-widest hover:bg-gray-100 transition-colors">Next &rsaquo;</button>
+                </div>
+                <p class="text-[10px] uppercase tracking-wider text-black/40 mt-2 break-all" id="photo-file"></p>
+
+                <h3 class="text-xs font-bold uppercase tracking-widest mt-6 mb-2">Jump To</h3>
+                <div id="jump-grid" class="grid grid-cols-10 gap-1"></div>
+                <p class="text-[10px] uppercase tracking-wider text-black/50 mt-2">Filled = labeled &bull; Outlined = unlabeled &bull; Struck = skipped</p>
+            </div>
+
+            <!-- Form -->
+            <div>
+                <section class="border border-black p-5 mb-6">
+                    <h2 class="text-lg font-bold mb-4 uppercase tracking-wider">1. Entree or Taquiza</h2>
+                    <select id="main-select" onchange="onMainChange()" class="w-full border border-black p-2 bg-white mb-3">
+                        <option value="">&mdash; None selected &mdash;</option>
+                    </select>
+                    <div id="main-variant-wrap" class="hidden">
+                        <label class="block text-xs font-bold uppercase tracking-wider mb-1">Style</label>
+                        <select id="main-variant" class="w-full border border-black p-2 bg-white"></select>
+                    </div>
+                </section>
+
+                <section class="border border-black p-5 mb-6">
+                    <h2 class="text-lg font-bold mb-4 uppercase tracking-wider">2. Sides on the plate</h2>
+                    <div id="sides-list" class="space-y-2 max-h-[26rem] overflow-y-auto pr-1"></div>
+                </section>
+
+                <div class="flex flex-col sm:flex-row gap-3">
+                    <button onclick="save(true)" class="flex-grow bg-black hover:bg-gray-800 text-white py-3 font-bold uppercase tracking-widest transition-colors">
+                        Save &amp; Next
+                    </button>
+                    <button onclick="skip()" class="border border-black px-5 py-3 font-bold uppercase tracking-widest hover:bg-gray-100 transition-colors" title="Photo is not usable for the plate builder">
+                        Skip
+                    </button>
+                    <button onclick="clearLabel()" class="border border-black px-5 py-3 font-bold uppercase tracking-widest hover:bg-gray-100 transition-colors">
+                        Clear
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="bg-gray-100 text-black py-5 mt-auto border-t border-gray-200 text-center text-xs uppercase tracking-widest font-bold">
+        Delicias Kitchen Catering &mdash; Photo Labeling
+    </footer>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+        import {
+            getFirestore, collection, query, orderBy, getDocs,
+            onSnapshot, doc, setDoc, deleteDoc, serverTimestamp
+        } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyC88JpbLzapZUcV-Y17Y9RUvwYuwSc2Dmw",
+            authDomain: "delicias-4b2b1.firebaseapp.com",
+            projectId: "delicias-4b2b1",
+            storageBucket: "delicias-4b2b1.firebasestorage.app",
+            messagingSenderId: "641583284059",
+            appId: "1:641583284059:web:2801a9160f3333b833a47e"
+        };
+
+        /*
+         * Firestore: platePhotos/{filename}
+         *   file        string   "PlatePicturesStudio/<name>.jpeg"
+         *   mainId      string   menuItems doc id (entree | taquiza), "" when skipped
+         *   mainName    string   denormalized for display
+         *   mainVariant string   chosen style, "" if the dish has none
+         *   sides       array    [{ id, name, variant }]
+         *   usable      boolean  false = skipped, not shown to customers
+         *   updatedAt   timestamp
+         */
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const photosRef = collection(db, "platePhotos");
+
+        // PlatePicturesStudio/1.jpg ... 29.jpg
+        const PHOTO_COUNT = 29;
+        const FILES = Array.from({ length: PHOTO_COUNT }, (_, i) => `${i + 1}.jpg`);
+        const FOLDER = "PlatePicturesStudio";
+
+        const SIDE_TYPES = { side: "Side", salad: "Salad", taquizaSide: "Taquiza Side" };
+
+        let mains = [], sides = [], labels = {}, current = 0;
+
+        const banner = document.getElementById('status-banner');
+        function showStatus(msg, isError = false) {
+            banner.textContent = msg;
+            banner.classList.remove('hidden');
+            banner.classList.toggle('bg-black', isError);
+            banner.classList.toggle('text-white', isError);
+            banner.classList.toggle('bg-gray-100', !isError);
+            clearTimeout(showStatus._t);
+            showStatus._t = setTimeout(() => banner.classList.add('hidden'), 3500);
+        }
+        const esc = s => String(s ?? '').replace(/[&<>"']/g, c =>
+            ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        const srcFor = f => `${FOLDER}/${encodeURIComponent(f)}`;
+
+        // --- rendering ---
+        function renderMainOptions() {
+            document.getElementById('main-select').innerHTML =
+                '<option value="">&mdash; None selected &mdash;</option>' +
+                mains.map(m => `<option value="${m.id}">${esc(m.name)}${m.type === 'taquiza' ? ' (Taquiza)' : ''}</option>`).join('');
+        }
+
+        function renderSidesList() {
+            document.getElementById('sides-list').innerHTML = sides.map(s => `
+                <div class="border border-black/20 p-2">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="side-${s.id}" onchange="onSideToggle('${s.id}')" class="accent-black w-4 h-4">
+                        <span class="font-bold uppercase tracking-wider text-sm">${esc(s.name)}</span>
+                        <span class="text-[10px] uppercase text-black/50 border border-black/30 px-1">${SIDE_TYPES[s.type]}</span>
+                    </label>
+                    ${(s.variants || []).length ? `
+                        <select id="side-var-${s.id}" class="hidden w-full border border-black p-1 mt-2 text-sm bg-white">
+                            <option value="">Style&hellip;</option>
+                            ${s.variants.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join('')}
+                        </select>` : ''}
+                </div>`).join('');
+        }
+
+        function renderJumpGrid() {
+            document.getElementById('jump-grid').innerHTML = FILES.map((f, i) => {
+                const l = labels[f];
+                let cls = 'border border-black/40 bg-white hover:bg-gray-200';
+                if (l && l.usable === false) cls = 'border border-black/40 bg-white line-through text-black/40';
+                else if (l) cls = 'bg-black text-white';
+                const ring = i === current ? ' ring-2 ring-black ring-offset-1' : '';
+                return `<button onclick="jump(${i})" class="${cls}${ring} text-[10px] font-bold py-1 transition-colors">${i + 1}</button>`;
+            }).join('');
+        }
+
+        function renderProgress() {
+            const done = FILES.filter(f => labels[f] && labels[f].usable !== false).length;
+            const skipped = FILES.filter(f => labels[f] && labels[f].usable === false).length;
+            document.getElementById('progress').textContent =
+                `${done} labeled${skipped ? ` · ${skipped} skipped` : ''} / ${FILES.length}`;
+        }
+
+        // --- form <-> state ---
+        function loadPhoto() {
+            const file = FILES[current];
+            document.getElementById('photo').src = srcFor(file);
+            document.getElementById('photo-index').textContent = `${current + 1} of ${FILES.length}`;
+            document.getElementById('photo-file').textContent = file;
+
+            const l = labels[file] || {};
+            document.getElementById('main-select').value = l.mainId || '';
+            onMainChange();
+            if (l.mainVariant) document.getElementById('main-variant').value = l.mainVariant;
+
+            const chosen = {};
+            (l.sides || []).forEach(s => { chosen[s.id] = s.variant || ''; });
+            sides.forEach(s => {
+                const cb = document.getElementById(`side-${s.id}`);
+                if (!cb) return;
+                cb.checked = Object.prototype.hasOwnProperty.call(chosen, s.id);
+                const sel = document.getElementById(`side-var-${s.id}`);
+                if (sel) {
+                    sel.classList.toggle('hidden', !cb.checked);
+                    sel.value = chosen[s.id] || '';
+                }
+            });
+
+            renderJumpGrid();
+            renderProgress();
+        }
+
+        window.onMainChange = () => {
+            const id = document.getElementById('main-select').value;
+            const main = mains.find(m => m.id === id);
+            const wrap = document.getElementById('main-variant-wrap');
+            const sel = document.getElementById('main-variant');
+            if (main && (main.variants || []).length) {
+                sel.innerHTML = '<option value="">Style&hellip;</option>' +
+                    main.variants.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join('');
+                wrap.classList.remove('hidden');
+            } else {
+                sel.innerHTML = '';
+                wrap.classList.add('hidden');
+            }
+        };
+
+        window.onSideToggle = (id) => {
+            const sel = document.getElementById(`side-var-${id}`);
+            if (sel) sel.classList.toggle('hidden', !document.getElementById(`side-${id}`).checked);
+        };
+
+        window.go = (dir) => {
+            current = (current + dir + FILES.length) % FILES.length;
+            loadPhoto();
+        };
+        window.jump = (i) => { current = i; loadPhoto(); };
+
+        window.save = async (advance) => {
+            const file = FILES[current];
+            const mainId = document.getElementById('main-select').value;
+            const main = mains.find(m => m.id === mainId);
+            if (!main) { showStatus("Choose an entree or taquiza first.", true); return; }
+            const mainVariant = (main.variants || []).length ? document.getElementById('main-variant').value : '';
+            if ((main.variants || []).length && !mainVariant) { showStatus(`Choose a style for ${main.name}.`, true); return; }
+
+            const picked = [];
+            for (const s of sides) {
+                const cb = document.getElementById(`side-${s.id}`);
+                if (!cb || !cb.checked) continue;
+                const variant = (s.variants || []).length ? document.getElementById(`side-var-${s.id}`).value : '';
+                if ((s.variants || []).length && !variant) { showStatus(`Choose a style for ${s.name}.`, true); return; }
+                picked.push({ id: s.id, name: s.name, variant });
+            }
+
+            try {
+                await setDoc(doc(db, "platePhotos", file), {
+                    file: `${FOLDER}/${file}`,
+                    mainId, mainName: main.name, mainVariant,
+                    sides: picked,
+                    usable: true,
+                    updatedAt: serverTimestamp()
+                });
+                showStatus(`Saved photo ${current + 1}.`);
+                if (advance && current < FILES.length - 1) go(1); else loadPhoto();
+            } catch (err) { console.error(err); showStatus("Save failed.", true); }
+        };
+
+        window.skip = async () => {
+            const file = FILES[current];
+            try {
+                await setDoc(doc(db, "platePhotos", file), {
+                    file: `${FOLDER}/${file}`,
+                    mainId: "", mainName: "", mainVariant: "",
+                    sides: [], usable: false, updatedAt: serverTimestamp()
+                });
+                showStatus(`Skipped photo ${current + 1}.`);
+                if (current < FILES.length - 1) go(1); else loadPhoto();
+            } catch (err) { console.error(err); showStatus("Could not skip.", true); }
+        };
+
+        window.clearLabel = async () => {
+            const file = FILES[current];
+            if (!labels[file]) { showStatus("Nothing to clear."); return; }
+            try {
+                await deleteDoc(doc(db, "platePhotos", file));
+                showStatus(`Cleared photo ${current + 1}.`);
+                loadPhoto();
+            } catch (err) { console.error(err); showStatus("Could not clear.", true); }
+        };
+
+        document.addEventListener('keydown', e => {
+            if (['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
+            if (e.key === 'ArrowLeft') go(-1);
+            if (e.key === 'ArrowRight') go(1);
+        });
+
+        // --- load ---
+        (async () => {
+            try {
+                const snap = await getDocs(query(collection(db, "menuItems"), orderBy("sortOrder")));
+                const items = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+                    .filter(i => i.available !== false);
+                mains = items.filter(i => i.type === 'entree' || i.type === 'taquiza');
+                sides = items.filter(i => SIDE_TYPES[i.type]);
+                renderMainOptions();
+                renderSidesList();
+            } catch (err) {
+                console.error(err);
+                showStatus("Could not load the menu.", true);
+            }
+
+            loadPhoto(); // show the first photo immediately; labels fill in below
+
+            let firstSnapshot = true;
+            onSnapshot(photosRef, snap => {
+                labels = {};
+                snap.forEach(d => { labels[d.id] = d.data(); });
+                // Only repopulate the form on the initial load — later snapshots are
+                // echoes of our own saves and must not clobber an in-progress edit.
+                if (firstSnapshot) {
+                    firstSnapshot = false;
+                    loadPhoto();
+                } else {
+                    renderJumpGrid();
+                    renderProgress();
+                }
+            }, err => { console.error(err); showStatus("Could not load saved labels.", true); });
+        })();
+    </script>
+</body>
+</html>
