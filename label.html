@@ -41,8 +41,21 @@
             are shown to customers whose plate matches. Bread rolls and salsa come with every package, so there
             is no need to label them.
         </p>
+        <p class="text-xs text-black/60 mb-6 max-w-3xl border-l-2 border-black/20 pl-3">
+            <span class="font-bold uppercase tracking-wider">Adding or removing photos:</span>
+            drop a new <code>.jpg</code> into <code>PlatePicturesStudio/</code> using any unused number and reload &mdash;
+            it is found automatically. To remove one, delete the file; its label can be cleared here.
+            <span class="font-bold">Never renumber a photo that already has a label</span> &mdash; gaps are fine, and
+            the filename is what ties a label to its photo. If a photo is renamed anyway, its label follows the
+            image itself on the next reload.
+        </p>
 
         <div id="status-banner" class="hidden mb-6 border border-black bg-gray-100 p-3 text-sm font-bold uppercase tracking-wider text-center"></div>
+
+        <div id="orphan-box" class="hidden mb-6 border border-black bg-white p-3 flex flex-wrap items-center justify-between gap-3">
+            <span id="orphan-text" class="text-xs font-bold uppercase tracking-wider"></span>
+            <button onclick="purgeOrphans()" class="border border-black px-4 py-2 text-[10px] font-bold uppercase tracking-widest hover:bg-gray-100 transition-colors">Remove stale labels</button>
+        </div>
 
         <div class="grid lg:grid-cols-2 gap-8 items-start">
             <!-- Photo -->
@@ -129,9 +142,14 @@
         const photosRef = collection(db, "platePhotos");
 
         // PlatePicturesStudio/1.jpg ... 29.jpg
-        const PHOTO_COUNT = 24;
-        const FILES = Array.from({ length: PHOTO_COUNT }, (_, i) => `${i + 1}.jpg`);
         const FOLDER = "PlatePicturesStudio";
+
+        // Photos are found by probing rather than counted, so adding or deleting
+        // one needs no code change and leaves a harmless gap in the numbering.
+        // Filenames are permanent ids: never renumber a photo that has a label.
+        let FILES = [];
+        const HARD_CAP = 200;       // highest photo number looked for
+        let orphans = [];           // labels whose photo is gone
 
         // Each service exposes only its own courses, so the lists stay short.
         const SERVICES = {
@@ -235,6 +253,102 @@
             renderPickLists();
         };
 
+        // --- photo discovery + identity ---
+        const numOf = f => { const n = parseInt(f, 10); return isNaN(n) ? Infinity : n; };
+        const byNumber = (a, b) => numOf(a) - numOf(b) || a.localeCompare(b);
+
+        function probeImage(file) {
+            return new Promise(resolve => {
+                const img = new Image();
+                img.onload = () => resolve(true);
+                img.onerror = () => resolve(false);
+                img.src = srcFor(file);
+            });
+        }
+
+        // HEAD keeps discovery cheap; the image fallback covers file://, where fetch is blocked
+        async function exists(file) {
+            try {
+                const res = await fetch(srcFor(file), { method: 'HEAD' });
+                if (res.ok) return true;
+                if (res.status === 404) return false;
+            } catch { /* fall through */ }
+            return probeImage(file);
+        }
+
+        // The whole range is scanned every time rather than stopping after a run of
+        // gaps, so a photo numbered well past the others is still found.
+        async function discoverPhotos(knownNames) {
+            const candidates = [...new Set([
+                ...knownNames,
+                ...Array.from({ length: HARD_CAP }, (_, i) => `${i + 1}.jpg`)
+            ])];
+            const found = [];
+            for (let i = 0; i < candidates.length; i += 50) {
+                const batch = candidates.slice(i, i + 50);
+                const results = await Promise.all(batch.map(exists));
+                results.forEach((ok, k) => { if (ok) found.push(batch[k]); });
+            }
+            return found.sort(byNumber);
+        }
+
+        // Content hash lets a label follow its photo if the file is ever renamed.
+        // Best effort: unavailable over file://, where the tool still works without self-healing.
+        async function hashOf(file) {
+            if (!(window.crypto && crypto.subtle)) return '';
+            try {
+                const buf = await (await fetch(srcFor(file))).arrayBuffer();
+                const digest = await crypto.subtle.digest('SHA-256', buf);
+                return [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join('');
+            } catch { return ''; }
+        }
+
+        // A renamed photo leaves its label pointing at a filename that is gone. Match
+        // those by content hash to a photo that has no label, and move the label over.
+        async function healRenames() {
+            const present = new Set(FILES);
+            const lost = Object.keys(labels).filter(f => !present.has(f) && labels[f].sha);
+            const unlabeled = FILES.filter(f => !labels[f]);
+            if (!lost.length || !unlabeled.length) return 0;
+
+            const byHash = new Map();
+            for (const f of unlabeled) {
+                const h = await hashOf(f);
+                if (h && !byHash.has(h)) byHash.set(h, f);
+            }
+
+            let moved = 0;
+            for (const gone of lost) {
+                const target = byHash.get(labels[gone].sha);
+                if (!target) continue;
+                try {
+                    await setDoc(doc(db, "platePhotos", target), { ...labels[gone], file: `${FOLDER}/${target}` });
+                    await deleteDoc(doc(db, "platePhotos", gone));
+                    byHash.delete(labels[gone].sha);
+                    moved++;
+                } catch (err) { console.error(err); }
+            }
+            return moved;
+        }
+
+        function renderOrphans() {
+            const present = new Set(FILES);
+            orphans = Object.keys(labels).filter(f => !present.has(f)).sort(byNumber);
+            const box = document.getElementById('orphan-box');
+            if (!orphans.length) { box.classList.add('hidden'); return; }
+            box.classList.remove('hidden');
+            document.getElementById('orphan-text').textContent =
+                `${orphans.length} label${orphans.length > 1 ? 's have' : ' has'} no photo: ${orphans.join(', ')}`;
+        }
+
+        window.purgeOrphans = async () => {
+            if (!orphans.length) return;
+            try {
+                await Promise.all(orphans.map(f => deleteDoc(doc(db, "platePhotos", f))));
+                showStatus(`Removed ${orphans.length} stale label${orphans.length > 1 ? 's' : ''}.`);
+            } catch (err) { console.error(err); showStatus("Could not remove stale labels.", true); }
+        };
+
         function renderJumpGrid() {
             document.getElementById('jump-grid').innerHTML = FILES.map((f, i) => {
                 const l = labels[f];
@@ -242,7 +356,8 @@
                 if (l && l.usable === false) cls = 'border border-black/40 bg-white line-through text-black/40';
                 else if (l) cls = 'bg-black text-white';
                 const ring = i === current ? ' ring-2 ring-black ring-offset-1' : '';
-                return `<button onclick="jump(${i})" class="${cls}${ring} text-[10px] font-bold py-1 transition-colors">${i + 1}</button>`;
+                // Label by filename, not position — the numbering may have gaps
+                return `<button onclick="jump(${i})" class="${cls}${ring} text-[10px] font-bold py-1 transition-colors">${f.replace(/\.[^.]+$/, '')}</button>`;
             }).join('');
         }
 
@@ -256,6 +371,14 @@
         // --- form <-> state ---
         function loadPhoto() {
             userTouched = false; // form now mirrors what is stored for this photo
+            if (!FILES.length) {
+                document.getElementById('photo-index').textContent = 'No photos found';
+                document.getElementById('photo-file').textContent = `Add .jpg files to ${FOLDER}/ and reload.`;
+                renderJumpGrid();
+                renderProgress();
+                return;
+            }
+            current = Math.min(current, FILES.length - 1);
             const file = FILES[current];
             document.getElementById('photo').src = srcFor(file);
             document.getElementById('photo-index').textContent = `${current + 1} of ${FILES.length}`;
@@ -359,9 +482,10 @@
                     mains: pickedMains,
                     sides: pickedSides,
                     usable: true,
+                    sha: labels[file]?.sha || await hashOf(file),
                     updatedAt: serverTimestamp()
                 });
-                showStatus(`Saved photo ${current + 1}.`);
+                showStatus(`Saved ${file}.`);
                 if (advance && current < FILES.length - 1) go(1); else loadPhoto();
             } catch (err) { console.error(err); showStatus("Save failed.", true); }
         };
@@ -372,9 +496,11 @@
                 await setDoc(doc(db, "platePhotos", file), {
                     file: `${FOLDER}/${file}`,
                     service: "", mains: [], sides: [],
-                    usable: false, updatedAt: serverTimestamp()
+                    usable: false,
+                    sha: labels[file]?.sha || await hashOf(file),
+                    updatedAt: serverTimestamp()
                 });
-                showStatus(`Skipped photo ${current + 1}.`);
+                showStatus(`Skipped ${file}.`);
                 if (current < FILES.length - 1) go(1); else loadPhoto();
             } catch (err) { console.error(err); showStatus("Could not skip.", true); }
         };
@@ -384,7 +510,7 @@
             if (!labels[file]) { showStatus("Nothing to clear."); return; }
             try {
                 await deleteDoc(doc(db, "platePhotos", file));
-                showStatus(`Cleared photo ${current + 1}.`);
+                showStatus(`Cleared ${file}.`);
                 loadPhoto();
             } catch (err) { console.error(err); showStatus("Could not clear.", true); }
         };
@@ -407,7 +533,20 @@
             }
             renderServiceButtons();
 
-            loadPhoto(); // show the first photo immediately; labels fill in below
+            // Existing labels tell us which files to look for beyond the numeric scan
+            let known = [];
+            try {
+                const snap = await getDocs(photosRef);
+                snap.forEach(d => { labels[d.id] = d.data(); known.push(d.id); });
+            } catch (err) { console.error(err); }
+
+            showStatus("Looking for photos…");
+            FILES = await discoverPhotos(known);
+            loadPhoto();
+
+            const moved = await healRenames();
+            if (moved) showStatus(`${moved} label${moved > 1 ? 's' : ''} followed a renamed photo.`);
+            else showStatus(`${FILES.length} photo${FILES.length === 1 ? '' : 's'} found.`);
 
             let firstSnapshot = true;
             onSnapshot(photosRef, snap => {
@@ -424,6 +563,7 @@
                     renderJumpGrid();
                     renderProgress();
                 }
+                renderOrphans();
             }, err => { console.error(err); showStatus("Could not load saved labels.", true); });
         })();
     </script>
