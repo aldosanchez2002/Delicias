@@ -47,8 +47,10 @@ def preflight():
             sys.exit("Storage bucket does not exist yet. Enable Storage in the Firebase "
                      "console (Storage -> Get started), then re-run.")
         if e.code == 403:
-            sys.exit("Storage exists but denied the listing. That is usually fine for "
-                     "reads; re-run with --apply to test an actual write.")
+            # Expected: the rules grant read on plate-photos/{file}, not on the bucket
+            # root, so listing is denied while the uploads below still work.
+            print("note: bucket listing is denied by the rules (expected); continuing")
+            return
         raise
 
 
