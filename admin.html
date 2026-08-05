@@ -841,6 +841,7 @@
                         </h4>
                         <p class="text-sm font-bold">${escapeHtml(r.name)} &bull; ${escapeHtml(r.phone)}</p>
                         <p class="text-sm text-black/70">${escapeHtml(r.entree)}${(r.sides || []).length ? ' with ' + escapeHtml(r.sides.join(', ')) : ''}${r.plates ? ` &bull; est. ${Number(r.plates)} plates` : ''}</p>
+                        ${r.plateware || r.utensils ? `<p class="text-sm text-black/70">${[r.plateware, r.utensils].filter(Boolean).map(escapeHtml).join(' &bull; ')}</p>` : ''}
                         <p class="text-[10px] uppercase tracking-wider text-black/50 mt-1">
                             ${submitted ? `Submitted ${escapeHtml(submitted)}` : ''}${changed ? ` &bull; Status changed ${escapeHtml(changed)}` : ''}
                             ${log.length ? `<button onclick="toggleRequestLog('${r.id}')" class="ml-2 underline underline-offset-2 hover:text-black transition-colors">${open ? 'Hide history' : `History (${log.length})`}</button>` : ''}
