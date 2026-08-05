@@ -698,16 +698,35 @@
         // the grid and skipped by the lightbox, so the gallery never shows a broken tile.
         const missingPhotos = new Set();
 
+        // Tiles are square and at most ~271 CSS px wide, so they load pre-cropped
+        // thumbnails (tools/make-gallery-thumbs.py) instead of the ~700KB originals.
+        // The 900px set keeps a 3x display sharp; the lightbox still loads the original.
+        const GALLERY_SIZES = '(min-width: 768px) 271px, (min-width: 640px) 31vw, 46vw';
+
         function renderGallery() {
             const grid = document.getElementById('gallery-grid');
             let html = '';
             for (let i = 1; i <= GALLERY_COUNT; i++) {
                 html += `
                     <button onclick="openLightbox(${i})" id="gallery-tile-${i}" class="aspect-square overflow-hidden border border-black/10 hover:opacity-80 transition-opacity" aria-label="View photo ${i}">
-                        <img src="GalleryPhotos/${i}.jpg" alt="Delicias catering photo ${i}" loading="lazy" onerror="dropGalleryPhoto(${i})" class="w-full h-full object-cover">
+                        <img src="GalleryPhotos/thumbs/400/${i}.jpg"
+                             srcset="GalleryPhotos/thumbs/400/${i}.jpg 400w, GalleryPhotos/thumbs/600/${i}.jpg 600w, GalleryPhotos/thumbs/900/${i}.jpg 900w"
+                             sizes="${GALLERY_SIZES}"
+                             alt="Delicias catering photo ${i}" loading="lazy" decoding="async"
+                             onerror="fallBackToOriginal(this, ${i})" class="w-full h-full object-cover">
                     </button>`;
             }
             grid.innerHTML = html;
+        }
+
+        // A photo added without running the thumbnail script still shows, just heavier;
+        // only a genuinely missing original drops the tile.
+        function fallBackToOriginal(img, i) {
+            if (img.dataset.fellBack) { dropGalleryPhoto(i); return; }
+            img.dataset.fellBack = '1';
+            img.removeAttribute('srcset');
+            img.removeAttribute('sizes');
+            img.src = `GalleryPhotos/${i}.jpg`;
         }
 
         function dropGalleryPhoto(i) {
