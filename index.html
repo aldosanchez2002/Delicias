@@ -960,7 +960,9 @@
             img.alt = match.exact ? 'Your plate' : 'Closest matching plate';
         }
 
-        // The verdict stays short; the full difference list hides behind a toggle
+        // Says plainly that the photo is not their exact plate, with the specific
+        // differences a click away. Sentence case, since a sentence in small caps
+        // is hard to read.
         function setPlateCaption(match) {
             const caption = document.getElementById('plate-caption');
             if (match.exact) {
@@ -971,12 +973,14 @@
                 .map(d => `<li class="flex gap-2"><span class="text-black/30">&bull;</span><span>${d}</span></li>`)
                 .join('');
             caption.innerHTML = `
-                <span class="font-bold text-black">Closest match</span>
-                <button type="button" id="plate-detail-toggle" onclick="togglePlateDetail()"
-                        class="ml-2 underline underline-offset-2 hover:text-black transition-colors">
-                    What&rsquo;s different?
-                </button>
-                <ul id="plate-detail" class="hidden mt-2 space-y-1 text-left normal-case tracking-normal text-black/70">${items}</ul>`;
+                <span class="normal-case tracking-normal text-[11px] leading-snug block">
+                    We don&rsquo;t have a photo of this exact combination &mdash; this is our closest match.
+                    <button type="button" id="plate-detail-toggle" onclick="togglePlateDetail()"
+                            class="font-bold text-black underline underline-offset-2 hover:opacity-70 transition-opacity">
+                        What&rsquo;s different?
+                    </button>
+                </span>
+                <ul id="plate-detail" class="hidden mt-2 space-y-1 text-left normal-case tracking-normal text-[11px] text-black/70">${items}</ul>`;
         }
 
         function togglePlateDetail() {
@@ -1004,7 +1008,9 @@
         function setPlateVisualPlaceholder() {
             plateVisualState({ placeholder: true });
             document.getElementById('plate-caption').innerHTML =
-                'We have not photographed this combination yet &mdash; your plate is made to order.';
+                `<span class="normal-case tracking-normal text-[11px] leading-snug block">
+                    We haven&rsquo;t photographed this combination yet &mdash; your plate is made to order.
+                 </span>`;
         }
 
         async function submitBooking() {
