@@ -26,6 +26,9 @@
                 <span class="font-bold text-lg sm:text-2xl tracking-widest uppercase">Delicias <span class="text-gray-500">Label</span></span>
                 <div class="flex items-center gap-4">
                     <span id="progress" class="text-xs font-bold uppercase tracking-wider text-black/60"></span>
+                    <button id="add-photo-btn" onclick="startAddPhoto()" class="border border-black px-4 py-2 text-xs font-bold uppercase tracking-widest hover:bg-gray-100 transition-colors">
+                        + Add Photo
+                    </button>
                     <a href="admin.html" class="bg-black hover:bg-gray-800 text-white px-4 py-2 text-xs font-bold uppercase tracking-widest transition-colors">
                         Back to Admin
                     </a>
@@ -58,6 +61,78 @@
         <div class="grid lg:grid-cols-2 gap-8 items-start">
             <!-- Photo -->
             <div class="lg:sticky lg:top-24">
+                <!-- Add-photo wizard: replaces the browse view while a new photo is being prepared -->
+                <div id="add-panel" class="hidden border border-black p-5 mb-4">
+                    <div class="flex justify-between items-start mb-4 gap-3">
+                        <h2 class="text-lg font-bold uppercase tracking-wider">Add a plate photo</h2>
+                        <button onclick="cancelAddPhoto()" class="text-xs font-bold uppercase tracking-wider underline underline-offset-2 hover:opacity-70">Cancel</button>
+                    </div>
+
+                    <!-- step 1 -->
+                    <div id="add-step-pick">
+                        <ol class="text-sm text-black/80 space-y-3 mb-4 list-decimal pl-5">
+                            <li>Take a <strong>top-down photo</strong> of the finished plate.</li>
+                            <li>Upload that photo to <strong>Gemini</strong> with this prompt:</li>
+                        </ol>
+                        <div class="border border-black/30 bg-gray-50 p-3 mb-2">
+                            <p id="gemini-prompt" class="text-xs leading-relaxed">turn this into a professional product picture with a top down angle, no background, just one plate, centered on an all white simple ceramic plate</p>
+                        </div>
+                        <button onclick="copyPrompt()" id="copy-prompt-btn" class="border border-black px-4 py-2 text-[10px] font-bold uppercase tracking-widest hover:bg-gray-100 transition-colors mb-5">Copy prompt</button>
+
+                        <label class="block text-xs font-bold uppercase tracking-wider mb-1">3. Upload what Gemini produced</label>
+                        <input type="file" accept="image/*" id="add-generated" onchange="onGeneratedPicked(event)"
+                               class="w-full border border-black p-2 text-sm bg-white mb-4">
+
+                        <label class="block text-xs font-bold uppercase tracking-wider mb-1">4. Your original photo <span class="font-normal normal-case text-black/50">(optional, for comparison)</span></label>
+                        <input type="file" accept="image/*" id="add-original" onchange="onOriginalPicked(event)"
+                               class="w-full border border-black p-2 text-sm bg-white">
+                        <p class="text-[10px] text-black/50 mt-2 leading-relaxed">
+                            Worth adding &mdash; the next step puts them side by side so you can check Gemini
+                            did not add, drop, or change anything on the plate.
+                        </p>
+                    </div>
+
+                    <!-- step 2 -->
+                    <div id="add-step-crop" class="hidden">
+                        <p class="text-xs text-black/60 mb-3">Drag to reposition, scroll or use the slider to zoom. The square is what gets saved.</p>
+                        <canvas id="crop-canvas" width="420" height="420" class="w-full border border-black bg-gray-50 cursor-move touch-none"></canvas>
+                        <input type="range" id="crop-zoom" min="100" max="300" value="100" oninput="setCropZoom(this.value)" class="w-full mt-3 accent-black">
+                        <div class="flex gap-3 mt-4">
+                            <button onclick="backToPick()" class="border border-black px-4 py-2 text-xs font-bold uppercase tracking-widest hover:bg-gray-100 transition-colors">Back</button>
+                            <button onclick="confirmCrop()" class="flex-grow bg-black hover:bg-gray-800 text-white py-2 text-xs font-bold uppercase tracking-widest transition-colors">Looks good</button>
+                        </div>
+                    </div>
+
+                    <!-- step 3 -->
+                    <div id="add-step-confirm" class="hidden">
+                        <div id="dup-warning" class="hidden border border-black bg-gray-200 p-3 mb-4 text-xs font-bold uppercase tracking-wider">
+                            This image is already in the library.
+                        </div>
+                        <p class="text-xs font-bold uppercase tracking-wider mb-2">Does the plate still show the same food?</p>
+                        <div class="grid grid-cols-2 gap-2 mb-4">
+                            <figure><img id="cmp-original" class="w-full aspect-square object-contain border border-black/20 bg-gray-50"><figcaption class="text-[10px] uppercase tracking-wider text-black/50 mt-1">Your photo</figcaption></figure>
+                            <figure><img id="cmp-new" class="w-full aspect-square object-cover border border-black bg-gray-50"><figcaption class="text-[10px] uppercase tracking-wider text-black/50 mt-1">Will be saved</figcaption></figure>
+                        </div>
+                        <p class="text-xs font-bold uppercase tracking-wider mb-2">Does it match the existing style?</p>
+                        <div id="cmp-existing" class="grid grid-cols-3 gap-2 mb-4"></div>
+                        <div class="flex gap-3">
+                            <button onclick="backToCrop()" class="border border-black px-4 py-2 text-xs font-bold uppercase tracking-widest hover:bg-gray-100 transition-colors">Back</button>
+                            <button onclick="startLabelingDraft()" class="flex-grow bg-black hover:bg-gray-800 text-white py-2 text-xs font-bold uppercase tracking-widest transition-colors">Continue to labeling</button>
+                        </div>
+                    </div>
+
+                    <!-- step 4 -->
+                    <div id="add-step-label" class="hidden">
+                        <img id="draft-preview" class="w-full aspect-square object-cover border border-black bg-gray-50 mb-3">
+                        <p class="text-xs text-black/70">
+                            Label this plate using the form, then <strong>Save</strong>. The image is uploaded and the
+                            record created together &mdash; nothing is stored until then.
+                        </p>
+                        <button onclick="backToCrop()" class="mt-3 border border-black px-4 py-2 text-xs font-bold uppercase tracking-widest hover:bg-gray-100 transition-colors">Adjust crop</button>
+                    </div>
+                </div>
+
+                <div id="browse-panel">
                 <div class="border border-black bg-white p-2">
                     <img id="photo" src="" alt="Plate photo" class="w-full aspect-square object-contain bg-gray-50">
                 </div>
@@ -71,6 +146,7 @@
                 <h3 class="text-xs font-bold uppercase tracking-widest mt-6 mb-2">Jump To</h3>
                 <div id="jump-grid" class="grid grid-cols-10 gap-1"></div>
                 <p class="text-[10px] uppercase tracking-wider text-black/50 mt-2">Filled = labeled &bull; Outlined = unlabeled &bull; Struck = skipped</p>
+                </div>
             </div>
 
             <!-- Form -->
@@ -113,8 +189,9 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
         import {
             getFirestore, collection, query, orderBy, getDocs,
-            onSnapshot, doc, setDoc, updateDoc, deleteDoc, serverTimestamp
+            onSnapshot, doc, setDoc, updateDoc, deleteDoc, addDoc, serverTimestamp
         } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+        import { getStorage, ref, uploadBytes } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-storage.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyC88JpbLzapZUcV-Y17Y9RUvwYuwSc2Dmw",
@@ -145,6 +222,9 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const photosRef = collection(db, "platePhotos");
+        const storage = getStorage(app);
+        const BUCKET = firebaseConfig.storageBucket;
+        const OUT_SIZE = 1000;   // matches the existing studio photos
 
         // Each photo is one document with an opaque auto-id, so the photo list is
         // simply the collection: no filename probing, no numbering, and nothing that
@@ -402,7 +482,210 @@
         };
         window.jump = (i) => { current = i; loadPhoto(); };
 
+        // ================= ADD PHOTO =================
+        // Nothing is written until the final save: the cropped image is held in
+        // memory so an abandoned upload cannot leave an image with no label, which
+        // matters because the storage rules do not allow deletes.
+        let draft = null;            // { blob, url, sha } once cropped
+        let sourceImg = null;        // the generated image being cropped
+        let originalUrl = "";        // the admin's own photo, for comparison
+        const crop = { zoom: 1, ox: 0, oy: 0, base: 1, drag: null };
+
+        window.copyPrompt = async () => {
+            const text = document.getElementById('gemini-prompt').textContent.trim();
+            try {
+                await navigator.clipboard.writeText(text);
+                const b = document.getElementById('copy-prompt-btn');
+                b.textContent = 'Copied';
+                setTimeout(() => { b.textContent = 'Copy prompt'; }, 1500);
+            } catch { showStatus('Copy failed — select the text manually.', true); }
+        };
+
+        function addStep(name) {
+            for (const s of ['pick', 'crop', 'confirm', 'label']) {
+                document.getElementById(`add-step-${s}`).classList.toggle('hidden', s !== name);
+            }
+        }
+
+        window.startAddPhoto = () => {
+            document.getElementById('add-panel').classList.remove('hidden');
+            document.getElementById('browse-panel').classList.add('hidden');
+            document.getElementById('add-generated').value = '';
+            document.getElementById('add-original').value = '';
+            draft = null; sourceImg = null; originalUrl = '';
+            addStep('pick');
+            resetForm();
+        };
+
+        window.cancelAddPhoto = () => {
+            if (draft?.url) URL.revokeObjectURL(draft.url);
+            if (originalUrl) URL.revokeObjectURL(originalUrl);
+            draft = null; sourceImg = null; originalUrl = '';
+            document.getElementById('add-panel').classList.add('hidden');
+            document.getElementById('browse-panel').classList.remove('hidden');
+            loadPhoto();
+        };
+
+        function resetForm() {
+            service = '';
+            renderServiceButtons();
+            renderPickLists();
+            userTouched = false;
+        }
+
+        window.onOriginalPicked = (e) => {
+            const f = e.target.files[0];
+            if (!f) return;
+            if (originalUrl) URL.revokeObjectURL(originalUrl);
+            originalUrl = URL.createObjectURL(f);
+        };
+
+        window.onGeneratedPicked = (e) => {
+            const f = e.target.files[0];
+            if (!f) return;
+            const img = new Image();
+            img.onload = () => { sourceImg = img; initCrop(); addStep('crop'); };
+            img.onerror = () => showStatus('Could not read that image.', true);
+            img.src = URL.createObjectURL(f);
+        };
+
+        // --- crop: ox/oy/dw/dh are all in canvas pixels, so exporting is the same
+        // maths scaled up, and what you see is exactly what gets saved.
+        function cropCanvas() { return document.getElementById('crop-canvas'); }
+
+        function initCrop() {
+            const V = cropCanvas().width;
+            crop.base = Math.max(V / sourceImg.width, V / sourceImg.height); // cover
+            crop.zoom = 1;
+            const dw = sourceImg.width * crop.base, dh = sourceImg.height * crop.base;
+            crop.ox = (V - dw) / 2; crop.oy = (V - dh) / 2;
+            document.getElementById('crop-zoom').value = 100;
+            drawCrop();
+        }
+
+        function cropDims() {
+            const eff = crop.base * crop.zoom;
+            return { dw: sourceImg.width * eff, dh: sourceImg.height * eff };
+        }
+
+        function clampCrop() {
+            const V = cropCanvas().width, { dw, dh } = cropDims();
+            crop.ox = Math.min(0, Math.max(V - dw, crop.ox));
+            crop.oy = Math.min(0, Math.max(V - dh, crop.oy));
+        }
+
+        function drawInto(ctx, size) {
+            const V = cropCanvas().width, k = size / V, { dw, dh } = cropDims();
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(0, 0, size, size);
+            ctx.drawImage(sourceImg, crop.ox * k, crop.oy * k, dw * k, dh * k);
+        }
+
+        function drawCrop() {
+            if (!sourceImg) return;
+            clampCrop();
+            const c = cropCanvas();
+            drawInto(c.getContext('2d'), c.width);
+        }
+
+        window.setCropZoom = (v) => {
+            const V = cropCanvas().width;
+            const before = cropDims();
+            crop.zoom = Number(v) / 100;
+            const after = cropDims();
+            // keep the viewport centre fixed while zooming
+            crop.ox -= (after.dw - before.dw) * ((V / 2 - crop.ox) / before.dw);
+            crop.oy -= (after.dh - before.dh) * ((V / 2 - crop.oy) / before.dh);
+            drawCrop();
+        };
+
+        (function wireCropDrag() {
+            const c = cropCanvas();
+            const pos = e => { const r = c.getBoundingClientRect();
+                return { x: (e.clientX - r.left) * c.width / r.width, y: (e.clientY - r.top) * c.height / r.height }; };
+            c.addEventListener('pointerdown', e => { crop.drag = pos(e); c.setPointerCapture(e.pointerId); });
+            c.addEventListener('pointermove', e => {
+                if (!crop.drag) return;
+                const p = pos(e);
+                crop.ox += p.x - crop.drag.x; crop.oy += p.y - crop.drag.y;
+                crop.drag = p; drawCrop();
+            });
+            c.addEventListener('pointerup', () => { crop.drag = null; });
+            c.addEventListener('pointercancel', () => { crop.drag = null; });
+            c.addEventListener('wheel', e => {
+                e.preventDefault();
+                const slider = document.getElementById('crop-zoom');
+                slider.value = Math.min(300, Math.max(100, Number(slider.value) - Math.sign(e.deltaY) * 8));
+                setCropZoom(slider.value);
+            }, { passive: false });
+        })();
+
+        window.backToPick = () => addStep('pick');
+        window.backToCrop = () => { if (sourceImg) { addStep('crop'); drawCrop(); } };
+
+        async function sha256Hex(blob) {
+            const d = await crypto.subtle.digest('SHA-256', await blob.arrayBuffer());
+            return [...new Uint8Array(d)].map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        window.confirmCrop = async () => {
+            const out = document.createElement('canvas');
+            out.width = out.height = OUT_SIZE;
+            drawInto(out.getContext('2d'), OUT_SIZE);
+            const blob = await new Promise(r => out.toBlob(r, 'image/jpeg', 0.88));
+            if (draft?.url) URL.revokeObjectURL(draft.url);
+            draft = { blob, url: URL.createObjectURL(blob), sha: await sha256Hex(blob) };
+
+            document.getElementById('cmp-new').src = draft.url;
+            const orig = document.getElementById('cmp-original');
+            orig.src = originalUrl || draft.url;
+            orig.style.opacity = originalUrl ? '1' : '0.25';
+
+            // a few existing plates to judge style drift against
+            document.getElementById('cmp-existing').innerHTML = PHOTOS.slice(0, 3)
+                .map(p => `<img src="${p.url}" class="w-full aspect-square object-cover border border-black/20 bg-gray-50">`).join('');
+
+            const dup = PHOTOS.some(p => p.sha && p.sha === draft.sha);
+            document.getElementById('dup-warning').classList.toggle('hidden', !dup);
+            addStep('confirm');
+        };
+
+        window.startLabelingDraft = () => {
+            document.getElementById('draft-preview').src = draft.url;
+            addStep('label');
+            resetForm();
+            showStatus('Label the plate, then Save.');
+        };
+
+        async function saveDraft() {
+            if (!SERVICES[service]) { showStatus("Pick the kind of plate first.", true); return; }
+            const mains = collectPicks('main'); if (mains === null) return;
+            const sides = collectPicks('side'); if (sides === null) return;
+            if (!mains.length && !sides.length) {
+                showStatus("Select at least one item shown on the plate.", true); return;
+            }
+            // Opaque name: the document id is the identity, the object name is incidental
+            const name = (crypto.randomUUID?.() || String(Date.now())) + '.jpg';
+            const path = `plate-photos/${name}`;
+            try {
+                showStatus('Uploading…');
+                await uploadBytes(ref(storage, path), draft.blob, { contentType: 'image/jpeg' });
+                const url = `https://firebasestorage.googleapis.com/v0/b/${BUCKET}/o/${encodeURIComponent(path)}?alt=media`;
+                await addDoc(photosRef, {
+                    url, storagePath: path, service, mains, sides,
+                    usable: true, sha: draft.sha,
+                    createdAt: serverTimestamp(), updatedAt: serverTimestamp()
+                });
+                showStatus('Photo added.');
+                cancelAddPhoto();
+            } catch (err) {
+                console.error(err);
+                showStatus('Upload failed — the photo was not added.', true);
+            }
+        }
+
         window.save = async (advance) => {
+            if (draft) return saveDraft();
             const photo = PHOTOS[current];
             if (!photo) return;
             if (!SERVICES[service]) { showStatus("Pick the kind of plate first.", true); return; }
