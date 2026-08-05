@@ -39,16 +39,14 @@
 
     <main class="flex-grow max-w-6xl mx-auto w-full px-4 py-8">
         <p class="text-sm text-black/70 mb-6 max-w-3xl">
-            Temporary tool. For each studio photo, pick the kind of plate, then check every item shown on it.
+            For each plate photo, pick the kind of plate, then check every item shown on it.
             Entrees are optional &mdash; leave them unchecked for a sides-only or salad-only photo. Labeled photos
             are shown to customers whose plate matches. Bread rolls and salsa come with every package, so there
             is no need to label them.
         </p>
         <p class="text-xs text-black/60 mb-6 max-w-3xl border-l-2 border-black/20 pl-3">
-            <span class="font-bold uppercase tracking-wider">How photos are stored:</span>
-            each photo is one record holding its own image link, so filenames carry no meaning and
-            nothing here has to be numbered or kept in order. Renaming or replacing an image in
-            storage cannot detach its label. The numbers below are just positions in this list.
+            These are the plate photos shown in the plate builder.
+            <span class="font-bold">Gallery photos are separate &mdash; please contact dev.</span>
         </p>
 
         <div id="status-banner" class="hidden mb-6 border border-black bg-gray-100 p-3 text-sm font-bold uppercase tracking-wider text-center"></div>
@@ -81,15 +79,7 @@
 
                         <label class="block text-xs font-bold uppercase tracking-wider mb-1">3. Upload what Gemini produced</label>
                         <input type="file" accept="image/*" id="add-generated" onchange="onGeneratedPicked(event)"
-                               class="w-full border border-black p-2 text-sm bg-white mb-4">
-
-                        <label class="block text-xs font-bold uppercase tracking-wider mb-1">4. Your original photo <span class="font-normal normal-case text-black/50">(optional, for comparison)</span></label>
-                        <input type="file" accept="image/*" id="add-original" onchange="onOriginalPicked(event)"
                                class="w-full border border-black p-2 text-sm bg-white">
-                        <p class="text-[10px] text-black/50 mt-2 leading-relaxed">
-                            Worth adding &mdash; the next step puts them side by side so you can check Gemini
-                            did not add, drop, or change anything on the plate.
-                        </p>
                     </div>
 
                     <!-- step 2 -->
@@ -104,25 +94,10 @@
                     </div>
 
                     <!-- step 3 -->
-                    <div id="add-step-confirm" class="hidden">
-                        <div id="dup-warning" class="hidden border border-black bg-gray-200 p-3 mb-4 text-xs font-bold uppercase tracking-wider">
+                    <div id="add-step-label" class="hidden">
+                        <div id="dup-warning" class="hidden border border-black bg-gray-200 p-3 mb-3 text-xs font-bold uppercase tracking-wider">
                             This image is already in the library.
                         </div>
-                        <p class="text-xs font-bold uppercase tracking-wider mb-2">Does the plate still show the same food?</p>
-                        <div class="grid grid-cols-2 gap-2 mb-4">
-                            <figure><img id="cmp-original" class="w-full aspect-square object-contain border border-black/20 bg-gray-50"><figcaption class="text-[10px] uppercase tracking-wider text-black/50 mt-1">Your photo</figcaption></figure>
-                            <figure><img id="cmp-new" class="w-full aspect-square object-cover border border-black bg-gray-50"><figcaption class="text-[10px] uppercase tracking-wider text-black/50 mt-1">Will be saved</figcaption></figure>
-                        </div>
-                        <p class="text-xs font-bold uppercase tracking-wider mb-2">Does it match the existing style?</p>
-                        <div id="cmp-existing" class="grid grid-cols-3 gap-2 mb-4"></div>
-                        <div class="flex gap-3">
-                            <button onclick="backToCrop()" class="border border-black px-4 py-2 text-xs font-bold uppercase tracking-widest hover:bg-gray-100 transition-colors">Back</button>
-                            <button onclick="startLabelingDraft()" class="flex-grow bg-black hover:bg-gray-800 text-white py-2 text-xs font-bold uppercase tracking-widest transition-colors">Continue to labeling</button>
-                        </div>
-                    </div>
-
-                    <!-- step 4 -->
-                    <div id="add-step-label" class="hidden">
                         <img id="draft-preview" class="w-full aspect-square object-cover border border-black bg-gray-50 mb-3">
                         <p class="text-xs text-black/70">
                             Label this plate using the form, then <strong>Save</strong>. The image is uploaded and the
@@ -488,7 +463,6 @@
         // matters because the storage rules do not allow deletes.
         let draft = null;            // { blob, url, sha } once cropped
         let sourceImg = null;        // the generated image being cropped
-        let originalUrl = "";        // the admin's own photo, for comparison
         const crop = { zoom: 1, ox: 0, oy: 0, base: 1, drag: null };
 
         window.copyPrompt = async () => {
@@ -502,7 +476,7 @@
         };
 
         function addStep(name) {
-            for (const s of ['pick', 'crop', 'confirm', 'label']) {
+            for (const s of ['pick', 'crop', 'label']) {
                 document.getElementById(`add-step-${s}`).classList.toggle('hidden', s !== name);
             }
         }
@@ -511,16 +485,14 @@
             document.getElementById('add-panel').classList.remove('hidden');
             document.getElementById('browse-panel').classList.add('hidden');
             document.getElementById('add-generated').value = '';
-            document.getElementById('add-original').value = '';
-            draft = null; sourceImg = null; originalUrl = '';
+            draft = null; sourceImg = null;
             addStep('pick');
             resetForm();
         };
 
         window.cancelAddPhoto = () => {
             if (draft?.url) URL.revokeObjectURL(draft.url);
-            if (originalUrl) URL.revokeObjectURL(originalUrl);
-            draft = null; sourceImg = null; originalUrl = '';
+            draft = null; sourceImg = null;
             document.getElementById('add-panel').classList.add('hidden');
             document.getElementById('browse-panel').classList.remove('hidden');
             loadPhoto();
@@ -532,13 +504,6 @@
             renderPickLists();
             userTouched = false;
         }
-
-        window.onOriginalPicked = (e) => {
-            const f = e.target.files[0];
-            if (!f) return;
-            if (originalUrl) URL.revokeObjectURL(originalUrl);
-            originalUrl = URL.createObjectURL(f);
-        };
 
         window.onGeneratedPicked = (e) => {
             const f = e.target.files[0];
@@ -636,21 +601,9 @@
             if (draft?.url) URL.revokeObjectURL(draft.url);
             draft = { blob, url: URL.createObjectURL(blob), sha: await sha256Hex(blob) };
 
-            document.getElementById('cmp-new').src = draft.url;
-            const orig = document.getElementById('cmp-original');
-            orig.src = originalUrl || draft.url;
-            orig.style.opacity = originalUrl ? '1' : '0.25';
-
-            // a few existing plates to judge style drift against
-            document.getElementById('cmp-existing').innerHTML = PHOTOS.slice(0, 3)
-                .map(p => `<img src="${p.url}" class="w-full aspect-square object-cover border border-black/20 bg-gray-50">`).join('');
-
             const dup = PHOTOS.some(p => p.sha && p.sha === draft.sha);
             document.getElementById('dup-warning').classList.toggle('hidden', !dup);
-            addStep('confirm');
-        };
 
-        window.startLabelingDraft = () => {
             document.getElementById('draft-preview').src = draft.url;
             addStep('label');
             resetForm();
