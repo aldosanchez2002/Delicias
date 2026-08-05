@@ -60,16 +60,16 @@
         <h1 class="text-4xl font-bold text-black mb-10 text-center uppercase tracking-widest">Manager</h1>
 
         <div class="flex justify-center gap-2 flex-wrap mb-12">
-            <button id="tab-menu" onclick="switchAdminTab('menu')" class="admin-tab border border-black px-5 py-2 text-xs font-bold uppercase tracking-widest transition-colors bg-black text-white">Menu</button>
-            <button id="tab-flavors" onclick="switchAdminTab('flavors')" class="admin-tab border border-black px-5 py-2 text-xs font-bold uppercase tracking-widest transition-colors hover:bg-gray-100">Flavor Pairings</button>
+            <button id="tab-requests" onclick="switchAdminTab('requests')" class="admin-tab border border-black px-5 py-2 text-xs font-bold uppercase tracking-widest transition-colors bg-black text-white">Requests <span id="requests-count" class="hidden ml-1 bg-white text-black px-1 text-[10px]"></span></button>
             <button id="tab-availability" onclick="switchAdminTab('availability')" class="admin-tab border border-black px-5 py-2 text-xs font-bold uppercase tracking-widest transition-colors hover:bg-gray-100">Availability</button>
-            <button id="tab-requests" onclick="switchAdminTab('requests')" class="admin-tab border border-black px-5 py-2 text-xs font-bold uppercase tracking-widest transition-colors hover:bg-gray-100">Requests <span id="requests-count" class="hidden ml-1 bg-white text-black px-1 text-[10px]"></span></button>
+            <button id="tab-menu" onclick="switchAdminTab('menu')" class="admin-tab border border-black px-5 py-2 text-xs font-bold uppercase tracking-widest transition-colors hover:bg-gray-100">Menu</button>
+            <button id="tab-flavors" onclick="switchAdminTab('flavors')" class="admin-tab border border-black px-5 py-2 text-xs font-bold uppercase tracking-widest transition-colors hover:bg-gray-100">Flavor Pairings</button>
         </div>
 
         <div id="status-banner" class="hidden mb-8 border border-black bg-gray-100 p-4 text-sm font-bold uppercase tracking-wider text-center"></div>
 
         <!-- ======================= MENU TAB ======================= -->
-        <div id="section-menu" class="admin-section">
+        <div id="section-menu" class="admin-section hidden">
 
             <section class="border border-black p-6 mb-12">
                 <h2 id="item-form-title" class="text-xl font-bold mb-6 uppercase tracking-wider">Add Item</h2>
@@ -276,7 +276,7 @@
         </div>
 
         <!-- ======================= REQUESTS TAB ======================= -->
-        <div id="section-requests" class="admin-section hidden">
+        <div id="section-requests" class="admin-section">
             <p class="text-sm text-black/70 mb-8 max-w-2xl">
                 Quote requests submitted from the site's plate builder, newest first. Set a status as you
                 work each one &mdash; every change is timestamped and kept in the request's history.
