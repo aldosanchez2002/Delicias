@@ -3,7 +3,7 @@
 
 The photos currently ship from the repo, which means adding one needs a commit.
 Moving them to Storage lets the admin tools upload directly. Each label document
-already carries a `file` field that index.html feeds straight to an <img>, so a
+already carries a url field that index.html feeds straight to an <img>, so a
 Storage URL drops in with no code change.
 
 The repo copies are deliberately left in place: they cost nothing, they keep git
@@ -59,9 +59,9 @@ def load_labels():
     return {d["name"].split("/")[-1]: d["fields"] for d in docs}
 
 
-def set_file_field(doc_id, fields, value):
+def set_url_field(doc_id, fields, value):
     fields = dict(fields)
-    fields["file"] = {"stringValue": value}
+    fields["url"] = {"stringValue": value}
     http(f"{FS}/platePhotos/{doc_id}?key={API_KEY}", "PATCH",
          json.dumps({"fields": fields}).encode())
 
@@ -77,10 +77,14 @@ def main():
     labels = load_labels()
 
     if args.rollback:
+        # Documents are keyed by auto-id now, so the repo filename comes from
+        # storagePath rather than the document id.
         n = 0
-        for doc_id, fields in sorted(labels.items(), key=lambda kv: int(kv[0].split(".")[0])):
-            if fields["file"]["stringValue"].startswith("http"):
-                set_file_field(doc_id, fields, f"{LOCAL}/{doc_id}")
+        for doc_id, fields in labels.items():
+            url = fields.get("url", {}).get("stringValue", "")
+            name = os.path.basename(fields.get("storagePath", {}).get("stringValue", ""))
+            if url.startswith("http") and name and os.path.exists(os.path.join(LOCAL, name)):
+                set_url_field(doc_id, fields, f"{LOCAL}/{name}")
                 n += 1
         print(f"pointed {n} labels back at {LOCAL}/")
         return
@@ -90,14 +94,15 @@ def main():
                    key=lambda f: int(f.split(".")[0]))
     print(f"{len(files)} photos in {LOCAL}/, {len(labels)} labels in Firestore")
 
-    orphans = [f for f in files if f not in labels]
+    known = {os.path.basename(v.get("storagePath", {}).get("stringValue", "")) for v in labels.values()}
+    orphans = [f for f in files if f not in known]
     if orphans:
         print(f"  note: no label for {orphans} (they will still be uploaded)")
 
     if not args.apply:
         for f in files[:3]:
             print(f"  would upload {LOCAL}/{f} -> {PREFIX}/{f}")
-        print(f"  ... {len(files)} total\n  then repoint each label's file field to its Storage URL")
+        print(f"  ... {len(files)} total\n  then repoint each label to its Storage URL")
         print("\ndry run only. re-run with --apply to perform it.")
         return
 
@@ -124,10 +129,14 @@ def main():
     print(f"verified {len(uploaded)} objects are public and byte-identical")
 
     # 3. only now repoint the labels
+    by_name = {os.path.basename(v.get("storagePath", {}).get("stringValue", "")): k
+               for k, v in labels.items()}
+    n = 0
     for f in uploaded:
-        if f in labels:
-            set_file_field(f, labels[f], public_url(f))
-    print(f"repointed {sum(1 for f in uploaded if f in labels)} labels at Storage")
+        if f in by_name:
+            set_url_field(by_name[f], labels[by_name[f]], public_url(f))
+            n += 1
+    print(f"repointed {n} labels at Storage")
     print("\nrepo copies were left in place; --rollback reverts the labels if needed.")
 
 

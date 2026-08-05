@@ -42,12 +42,10 @@
             is no need to label them.
         </p>
         <p class="text-xs text-black/60 mb-6 max-w-3xl border-l-2 border-black/20 pl-3">
-            <span class="font-bold uppercase tracking-wider">Adding or removing photos:</span>
-            drop a new <code>.jpg</code> into <code>PlatePicturesStudio/</code> using any unused number and reload &mdash;
-            it is found automatically. To remove one, delete the file; its label can be cleared here.
-            <span class="font-bold">Never renumber a photo that already has a label</span> &mdash; gaps are fine, and
-            the filename is what ties a label to its photo. If a photo is renamed anyway, its label follows the
-            image itself on the next reload.
+            <span class="font-bold uppercase tracking-wider">How photos are stored:</span>
+            each photo is one record holding its own image link, so filenames carry no meaning and
+            nothing here has to be numbered or kept in order. Renaming or replacing an image in
+            storage cannot detach its label. The numbers below are just positions in this list.
         </p>
 
         <div id="status-banner" class="hidden mb-6 border border-black bg-gray-100 p-3 text-sm font-bold uppercase tracking-wider text-center"></div>
@@ -115,7 +113,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
         import {
             getFirestore, collection, query, orderBy, getDocs,
-            onSnapshot, doc, setDoc, deleteDoc, serverTimestamp
+            onSnapshot, doc, setDoc, updateDoc, deleteDoc, serverTimestamp
         } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
         const firebaseConfig = {
@@ -128,28 +126,31 @@
         };
 
         /*
-         * Firestore: platePhotos/{filename}
-         *   file      string   "PlatePicturesStudio/<n>.jpg"
-         *   service   string   "dinner" | "taquiza" | "brunch" | "kids"
-         *   mains     array    [{ id, name, variant }] — a plate may show several entrees
-         *   sides     array    [{ id, name, variant }]
-         *   usable    boolean  false = skipped, not shown to customers
-         *   updatedAt timestamp
+         * Firestore: platePhotos/{autoId}
+         *   url         string   public Storage download URL — what the site renders
+         *   storagePath string   object path, for replacing or removing the image
+         *   service     string   "dinner" | "taquiza" | "brunch" | "kids"
+         *   mains       array    [{ id, name, variant }] — a plate may show several entrees
+         *   sides       array    [{ id, name, variant }]
+         *   usable      boolean  false = skipped, not shown to customers
+         *   pending     boolean  uploaded but not labeled yet
+         *   sha         string   content hash, for spotting a duplicate upload
+         *   createdAt   timestamp  display ordering
+         *   updatedAt   timestamp
+         *
+         * The document id is the photo's identity. The Storage object may be named
+         * anything, so renaming or replacing an image never detaches its label.
          */
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const photosRef = collection(db, "platePhotos");
 
-        // PlatePicturesStudio/1.jpg ... 29.jpg
-        const FOLDER = "PlatePicturesStudio";
-
-        // Photos are found by probing rather than counted, so adding or deleting
-        // one needs no code change and leaves a harmless gap in the numbering.
-        // Filenames are permanent ids: never renumber a photo that has a label.
-        let FILES = [];
-        const HARD_CAP = 200;       // highest photo number looked for
-        let orphans = [];           // labels whose photo is gone
+        // Each photo is one document with an opaque auto-id, so the photo list is
+        // simply the collection: no filename probing, no numbering, and nothing that
+        // breaks if an image is renamed or replaced in Storage.
+        let PHOTOS = [];            // [{ id, url, ...label }] ordered by createdAt
+        let orphans = [];           // documents whose image no longer loads
 
         // Each service exposes only its own courses, so the lists stay short.
         const SERVICES = {
@@ -163,7 +164,7 @@
             side: "Side", salad: "Salad", taquizaSide: "Taquiza Side", kidsSide: "Kids Side"
         };
 
-        let allItems = [], labels = {}, current = 0, service = "";
+        let allItems = [], current = 0, service = "";
         // Set once the admin edits the form, so a late-arriving snapshot never wipes their work
         let userTouched = false;
 
@@ -179,7 +180,6 @@
         }
         const esc = s => String(s ?? '').replace(/[&<>"']/g, c =>
             ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-        const srcFor = f => `${FOLDER}/${encodeURIComponent(f)}`;
 
         // --- rendering ---
         const itemsOfTypes = types => allItems.filter(i => types.includes(i.type));
@@ -253,146 +253,87 @@
             renderPickLists();
         };
 
-        // --- photo discovery + identity ---
-        const numOf = f => { const n = parseInt(f, 10); return isNaN(n) ? Infinity : n; };
-        const byNumber = (a, b) => numOf(a) - numOf(b) || a.localeCompare(b);
-
-        function probeImage(file) {
-            return new Promise(resolve => {
-                const img = new Image();
-                img.onload = () => resolve(true);
-                img.onerror = () => resolve(false);
-                img.src = srcFor(file);
+        // --- photo list ---
+        // Ordering is by createdAt so the tool can still say "photo 7 of 24" without
+        // that number meaning anything durable.
+        function photosFromSnapshot(snap) {
+            const out = [];
+            snap.forEach(d => out.push({ id: d.id, ...d.data() }));
+            return out.sort((a, b) => {
+                const at = a.createdAt?.toMillis?.() ?? 0, bt = b.createdAt?.toMillis?.() ?? 0;
+                return at - bt || a.id.localeCompare(b.id);
             });
         }
 
-        // HEAD keeps discovery cheap; the image fallback covers file://, where fetch is blocked
-        async function exists(file) {
-            try {
-                const res = await fetch(srcFor(file), { method: 'HEAD' });
-                if (res.ok) return true;
-                if (res.status === 404) return false;
-            } catch { /* fall through */ }
-            return probeImage(file);
-        }
-
-        // The whole range is scanned every time rather than stopping after a run of
-        // gaps, so a photo numbered well past the others is still found.
-        async function discoverPhotos(knownNames) {
-            const candidates = [...new Set([
-                ...knownNames,
-                ...Array.from({ length: HARD_CAP }, (_, i) => `${i + 1}.jpg`)
-            ])];
-            const found = [];
-            for (let i = 0; i < candidates.length; i += 50) {
-                const batch = candidates.slice(i, i + 50);
-                const results = await Promise.all(batch.map(exists));
-                results.forEach((ok, k) => { if (ok) found.push(batch[k]); });
-            }
-            return found.sort(byNumber);
-        }
-
-        // Content hash lets a label follow its photo if the file is ever renamed.
-        // Best effort: unavailable over file://, where the tool still works without self-healing.
-        async function hashOf(file) {
-            if (!(window.crypto && crypto.subtle)) return '';
-            try {
-                const buf = await (await fetch(srcFor(file))).arrayBuffer();
-                const digest = await crypto.subtle.digest('SHA-256', buf);
-                return [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join('');
-            } catch { return ''; }
-        }
-
-        // A renamed photo leaves its label pointing at a filename that is gone. Match
-        // those by content hash to a photo that has no label, and move the label over.
-        async function healRenames() {
-            const present = new Set(FILES);
-            const lost = Object.keys(labels).filter(f => !present.has(f) && labels[f].sha);
-            const unlabeled = FILES.filter(f => !labels[f]);
-            if (!lost.length || !unlabeled.length) return 0;
-
-            const byHash = new Map();
-            for (const f of unlabeled) {
-                const h = await hashOf(f);
-                if (h && !byHash.has(h)) byHash.set(h, f);
-            }
-
-            let moved = 0;
-            for (const gone of lost) {
-                const target = byHash.get(labels[gone].sha);
-                if (!target) continue;
-                try {
-                    await setDoc(doc(db, "platePhotos", target), { ...labels[gone], file: `${FOLDER}/${target}` });
-                    await deleteDoc(doc(db, "platePhotos", gone));
-                    byHash.delete(labels[gone].sha);
-                    moved++;
-                } catch (err) { console.error(err); }
-            }
-            return moved;
-        }
+        function isLabeled(p) { return !!p.service && !p.pending; }
 
         function renderOrphans() {
-            const present = new Set(FILES);
-            orphans = Object.keys(labels).filter(f => !present.has(f)).sort(byNumber);
             const box = document.getElementById('orphan-box');
             if (!orphans.length) { box.classList.add('hidden'); return; }
             box.classList.remove('hidden');
             document.getElementById('orphan-text').textContent =
-                `${orphans.length} label${orphans.length > 1 ? 's have' : ' has'} no photo: ${orphans.join(', ')}`;
+                `${orphans.length} label${orphans.length > 1 ? 's have' : ' has'} an image that will not load`;
         }
 
         window.purgeOrphans = async () => {
             if (!orphans.length) return;
             try {
-                await Promise.all(orphans.map(f => deleteDoc(doc(db, "platePhotos", f))));
+                await Promise.all(orphans.map(id => deleteDoc(doc(db, "platePhotos", id))));
                 showStatus(`Removed ${orphans.length} stale label${orphans.length > 1 ? 's' : ''}.`);
             } catch (err) { console.error(err); showStatus("Could not remove stale labels.", true); }
         };
 
         function renderJumpGrid() {
-            document.getElementById('jump-grid').innerHTML = FILES.map((f, i) => {
-                const l = labels[f];
+            // Position is a display convenience only; identity is the document id
+            document.getElementById('jump-grid').innerHTML = PHOTOS.map((p, i) => {
                 let cls = 'border border-black/40 bg-white hover:bg-gray-200';
-                if (l && l.usable === false) cls = 'border border-black/40 bg-white line-through text-black/40';
-                else if (l) cls = 'bg-black text-white';
+                if (p.usable === false) cls = 'border border-black/40 bg-white line-through text-black/40';
+                else if (isLabeled(p)) cls = 'bg-black text-white';
                 const ring = i === current ? ' ring-2 ring-black ring-offset-1' : '';
-                // Label by filename, not position — the numbering may have gaps
-                return `<button onclick="jump(${i})" class="${cls}${ring} text-[10px] font-bold py-1 transition-colors">${f.replace(/\.[^.]+$/, '')}</button>`;
+                return `<button onclick="jump(${i})" class="${cls}${ring} text-[10px] font-bold py-1 transition-colors">${i + 1}</button>`;
             }).join('');
         }
 
         function renderProgress() {
-            const done = FILES.filter(f => labels[f] && labels[f].usable !== false).length;
-            const skipped = FILES.filter(f => labels[f] && labels[f].usable === false).length;
+            const done = PHOTOS.filter(p => isLabeled(p) && p.usable !== false).length;
+            const skipped = PHOTOS.filter(p => p.usable === false).length;
             document.getElementById('progress').textContent =
-                `${done} labeled${skipped ? ` · ${skipped} skipped` : ''} / ${FILES.length}`;
+                `${done} labeled${skipped ? ` · ${skipped} skipped` : ''} / ${PHOTOS.length}`;
         }
 
         // --- form <-> state ---
         function loadPhoto() {
             userTouched = false; // form now mirrors what is stored for this photo
-            if (!FILES.length) {
-                document.getElementById('photo-index').textContent = 'No photos found';
-                document.getElementById('photo-file').textContent = `Add .jpg files to ${FOLDER}/ and reload.`;
+            if (!PHOTOS.length) {
+                document.getElementById('photo-index').textContent = 'No photos yet';
+                document.getElementById('photo-file').textContent = '';
+                document.getElementById('photo').removeAttribute('src');
                 renderJumpGrid();
                 renderProgress();
                 return;
             }
-            current = Math.min(current, FILES.length - 1);
-            const file = FILES[current];
-            document.getElementById('photo').src = srcFor(file);
-            document.getElementById('photo-index').textContent = `${current + 1} of ${FILES.length}`;
-            document.getElementById('photo-file').textContent = file;
+            current = Math.min(current, PHOTOS.length - 1);
+            const p = PHOTOS[current];
+            const img = document.getElementById('photo');
+            img.onerror = () => flagOrphan(p.id);
+            img.src = p.url;
+            document.getElementById('photo-index').textContent = `${current + 1} of ${PHOTOS.length}`;
+            document.getElementById('photo-file').textContent = `${p.storagePath || ''} · ${p.id}`;
 
-            const l = labels[file] || {};
-            service = l.service || '';
+            service = p.service || '';
             renderServiceButtons();
             renderPickLists();
-            applyPicks('main', l.mains || []);
-            applyPicks('side', l.sides || []);
+            applyPicks('main', p.mains || []);
+            applyPicks('side', p.sides || []);
 
             renderJumpGrid();
             renderProgress();
+        }
+
+        function flagOrphan(id) {
+            if (orphans.includes(id)) return;
+            orphans.push(id);
+            renderOrphans();
         }
 
         function applyPicks(prefix, picks) {
@@ -455,13 +396,15 @@
         }
 
         window.go = (dir) => {
-            current = (current + dir + FILES.length) % FILES.length;
+            if (!PHOTOS.length) return;
+            current = (current + dir + PHOTOS.length) % PHOTOS.length;
             loadPhoto();
         };
         window.jump = (i) => { current = i; loadPhoto(); };
 
         window.save = async (advance) => {
-            const file = FILES[current];
+            const photo = PHOTOS[current];
+            if (!photo) return;
             if (!SERVICES[service]) { showStatus("Pick the kind of plate first.", true); return; }
 
             const pickedMains = collectPicks('main');
@@ -476,41 +419,43 @@
             }
 
             try {
-                await setDoc(doc(db, "platePhotos", file), {
-                    file: `${FOLDER}/${file}`,
+                await updateDoc(doc(db, "platePhotos", photo.id), {
                     service,
                     mains: pickedMains,
                     sides: pickedSides,
                     usable: true,
-                    sha: labels[file]?.sha || await hashOf(file),
+                    pending: false,
                     updatedAt: serverTimestamp()
                 });
-                showStatus(`Saved ${file}.`);
-                if (advance && current < FILES.length - 1) go(1); else loadPhoto();
+                showStatus(`Saved photo ${current + 1}.`);
+                if (advance && current < PHOTOS.length - 1) go(1); else loadPhoto();
             } catch (err) { console.error(err); showStatus("Save failed.", true); }
         };
 
         window.skip = async () => {
-            const file = FILES[current];
+            const photo = PHOTOS[current];
+            if (!photo) return;
             try {
-                await setDoc(doc(db, "platePhotos", file), {
-                    file: `${FOLDER}/${file}`,
+                await updateDoc(doc(db, "platePhotos", photo.id), {
                     service: "", mains: [], sides: [],
-                    usable: false,
-                    sha: labels[file]?.sha || await hashOf(file),
+                    usable: false, pending: false,
                     updatedAt: serverTimestamp()
                 });
-                showStatus(`Skipped ${file}.`);
-                if (current < FILES.length - 1) go(1); else loadPhoto();
+                showStatus(`Skipped photo ${current + 1}.`);
+                if (current < PHOTOS.length - 1) go(1); else loadPhoto();
             } catch (err) { console.error(err); showStatus("Could not skip.", true); }
         };
 
         window.clearLabel = async () => {
-            const file = FILES[current];
-            if (!labels[file]) { showStatus("Nothing to clear."); return; }
+            const photo = PHOTOS[current];
+            if (!photo || !isLabeled(photo)) { showStatus("Nothing to clear."); return; }
             try {
-                await deleteDoc(doc(db, "platePhotos", file));
-                showStatus(`Cleared ${file}.`);
+                // Clears the label but keeps the photo; deleting the doc would orphan the image
+                await updateDoc(doc(db, "platePhotos", photo.id), {
+                    service: "", mains: [], sides: [], usable: true,
+                    updatedAt: serverTimestamp()
+                });
+                showStatus(`Cleared photo ${current + 1}.`);
                 loadPhoto();
             } catch (err) { console.error(err); showStatus("Could not clear.", true); }
         };
@@ -533,30 +478,16 @@
             }
             renderServiceButtons();
 
-            // Existing labels tell us which files to look for beyond the numeric scan
-            let known = [];
-            try {
-                const snap = await getDocs(photosRef);
-                snap.forEach(d => { labels[d.id] = d.data(); known.push(d.id); });
-            } catch (err) { console.error(err); }
-
-            showStatus("Looking for photos…");
-            FILES = await discoverPhotos(known);
-            loadPhoto();
-
-            const moved = await healRenames();
-            if (moved) showStatus(`${moved} label${moved > 1 ? 's' : ''} followed a renamed photo.`);
-            else showStatus(`${FILES.length} photo${FILES.length === 1 ? '' : 's'} found.`);
-
+            // The collection is the photo list — no probing, no filenames to guess
             let firstSnapshot = true;
             onSnapshot(photosRef, snap => {
-                labels = {};
-                snap.forEach(d => { labels[d.id] = d.data(); });
+                PHOTOS = photosFromSnapshot(snap);
                 // Only repopulate the form on the initial load, and only if the admin
                 // has not already started editing — later snapshots are echoes of our
                 // own saves and must not clobber in-progress work.
                 if (firstSnapshot && !userTouched) {
                     firstSnapshot = false;
+                    showStatus(`${PHOTOS.length} photo${PHOTOS.length === 1 ? '' : 's'}.`);
                     loadPhoto();
                 } else {
                     firstSnapshot = false;

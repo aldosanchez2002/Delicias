@@ -944,7 +944,8 @@
                 .map(p => scorePhoto(p, want))
                 .filter(Boolean)
                 .sort((a, b) => b.ratio - a.ratio || a.diffs.length - b.diffs.length
-                    || a.photo.file.localeCompare(b.photo.file, undefined, { numeric: true }));
+                    // Final tiebreak on the document id, purely so the pick is stable
+                    || String(a.photo.id).localeCompare(String(b.photo.id)));
             return scored[0] || null;
         }
 
@@ -956,7 +957,7 @@
             const img = document.getElementById('plate-photo');
             img.onload = () => { showPlatePhoto(); setPlateCaption(match); };
             img.onerror = () => setPlateVisualPlaceholder();
-            img.src = match.photo.file;
+            img.src = match.photo.url;
             img.alt = match.exact ? 'Your plate' : 'Closest matching plate';
         }
 
@@ -1132,7 +1133,9 @@
                     .filter(i => i.available !== false);
                 flavorConflicts = conflictSnap.docs.map(d => d.data());
                 availabilityRules = ruleSnap.docs.map(d => d.data());
-                platePhotos = photoSnap.docs.map(d => d.data()).filter(p => p.usable !== false);
+                platePhotos = photoSnap.docs
+                    .map(d => ({ id: d.id, ...d.data() }))
+                    .filter(p => p.usable !== false && p.url);
                 menuLoadFailed = menuData.items.length === 0;
             } catch (error) {
                 console.error("Could not load data from Firestore.", error);
