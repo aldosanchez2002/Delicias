@@ -308,7 +308,7 @@
                             <div id="success-message" class="bg-black text-white p-3 text-center text-sm font-bold uppercase tracking-wider hidden">Request received — we will be in touch shortly.</div>
                             <div id="submit-error" class="bg-gray-200 border border-black text-black p-3 text-center text-xs font-bold uppercase tracking-wider hidden mb-3">Something went wrong. Please try again or call (915) 555-0199.</div>
                             <button id="submit-btn" onclick="submitBooking()" disabled class="w-full py-3 font-bold uppercase tracking-widest transition-colors bg-gray-200 text-gray-400 cursor-not-allowed">
-                                Request Tasting
+                                Request Quote
                             </button>
                         </div>
                     </div>
@@ -339,6 +339,10 @@
                     <li class="flex items-center gap-2 mt-4 pt-4 border-t border-gray-200">
                         <i data-lucide="facebook" class="h-4 w-4"></i>
                         <a href="https://www.facebook.com/p/Delicias-Kitchen-Catering-100083303952713/" target="_blank" rel="noreferrer" class="hover:text-gray-600 transition-colors">Facebook</a>
+                    </li>
+                    <li class="flex items-center gap-2">
+                        <i data-lucide="star" class="h-4 w-4"></i>
+                        <a href="https://g.page/r/CaKlMYZTVQXmEBM/review" target="_blank" rel="noreferrer" class="hover:text-gray-600 transition-colors">Leave a Google Review</a>
                     </li>
                 </ul>
             </div>
@@ -478,7 +482,7 @@
             const brunch = menuSubsection('', ofType('brunch'));
             if (brunch) sections.push({
                 title: 'Brunch',
-                note: 'Served as complete packages &mdash; not mix &amp; match. All brunch packages include juice of your liking, coffee, and milk.',
+                note: 'Served as complete packages &mdash; not mix &amp; match.',
                 body: brunch
             });
 
@@ -491,7 +495,7 @@
                     ${s.note ? `<p class="text-xs font-bold uppercase tracking-wider text-black/60 mb-6 md:mb-8">${s.note}</p>` : '<div class="mb-6 md:mb-8"></div>'}
                     ${s.body}
                 </section>`).join('') +
-                `<p class="text-center text-xs font-bold uppercase tracking-widest text-black/60 border-t border-black/20 pt-8">All our packages include salsa and bread</p>`;
+                `<p class="text-center text-xs font-bold uppercase tracking-widest text-black/60 border-t border-black/20 pt-8">All dinner packages include salsa and bread</p>`;
         }
 
         // --- Builder Logic ---
@@ -1000,13 +1004,13 @@
                 });
             } catch (error) {
                 console.error("Failed to submit tasting request", error);
-                btn.innerText = 'Request Tasting';
+                btn.innerText = 'Request Quote';
                 errMsg.classList.remove('hidden');
                 validateForm();
                 return;
             }
 
-            btn.innerText = 'Request Tasting';
+            btn.innerText = 'Request Quote';
             btn.classList.add('hidden');
             successMsg.classList.remove('hidden');
 
