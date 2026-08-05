@@ -243,6 +243,20 @@
                                 <!-- Sides populated by JS -->
                             </div>
                         </div>
+
+                        <div id="builder-service-section" class="transition-opacity duration-300 opacity-50 pointer-events-none">
+                            <h2 class="text-xl font-bold text-black uppercase tracking-wider mb-4">3. Plates &amp; Utensils</h2>
+                            <div class="grid sm:grid-cols-2 gap-6">
+                                <div>
+                                    <h3 class="text-xs font-bold uppercase tracking-widest mb-2">Plates</h3>
+                                    <div id="builder-plateware-container" class="space-y-2"></div>
+                                </div>
+                                <div>
+                                    <h3 class="text-xs font-bold uppercase tracking-widest mb-2">Utensils</h3>
+                                    <div id="builder-utensils-container" class="space-y-2"></div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="lg:w-1/3">
@@ -268,6 +282,14 @@
                                 <div class="flex justify-between border-b border-black/20 pb-1">
                                     <span class="uppercase tracking-wider font-bold">Sides:</span>
                                     <span class="text-right" id="summary-sides">-</span>
+                                </div>
+                                <div class="flex justify-between border-b border-black/20 pb-1">
+                                    <span class="uppercase tracking-wider font-bold">Plates:</span>
+                                    <span class="text-right" id="summary-plateware">-</span>
+                                </div>
+                                <div class="flex justify-between border-b border-black/20 pb-1">
+                                    <span class="uppercase tracking-wider font-bold">Utensils:</span>
+                                    <span class="text-right" id="summary-utensils">-</span>
                                 </div>
                             </div>
 
@@ -347,6 +369,15 @@
                         <a href="https://www.facebook.com/p/Delicias-Kitchen-Catering-100083303952713/" target="_blank" rel="noreferrer" class="hover:text-gray-600 transition-colors">Facebook</a>
                     </li>
                     <li class="flex items-center gap-2">
+                        <!-- Inlined for the same reason as Facebook: lucide dropped brand icons -->
+                        <svg viewBox="0 0 24 24" fill="currentColor" class="h-4 w-4 shrink-0" aria-hidden="true">
+                            <path d="M12 2.16c3.2 0 3.58.01 4.85.07 1.17.05 1.8.25 2.23.41.56.22.96.48 1.38.9.42.42.68.82.9 1.38.16.42.36 1.06.41 2.23.06 1.27.07 1.65.07 4.85s-.01 3.58-.07 4.85c-.05 1.17-.25 1.8-.41 2.23-.22.56-.48.96-.9 1.38-.42.42-.82.68-1.38.9-.42.16-1.06.36-2.23.41-1.27.06-1.65.07-4.85.07s-3.58-.01-4.85-.07c-1.17-.05-1.8-.25-2.23-.41-.56-.22-.96-.48-1.38-.9-.42-.42-.68-.82-.9-1.38-.16-.42-.36-1.06-.41-2.23-.06-1.27-.07-1.65-.07-4.85s.01-3.58.07-4.85c.05-1.17.25-1.8.41-2.23.22-.56.48-.96.9-1.38.42-.42.82-.68 1.38-.9.42-.16 1.06-.36 2.23-.41 1.27-.06 1.65-.07 4.85-.07M12 0C8.74 0 8.33.01 7.05.07c-1.28.06-2.15.26-2.91.56-.79.31-1.46.72-2.13 1.39C1.34 2.69.93 3.36.62 4.15c-.3.76-.5 1.63-.56 2.91C.01 8.33 0 8.74 0 12s.01 3.67.07 4.95c.06 1.28.26 2.15.56 2.91.31.79.72 1.46 1.39 2.13.67.67 1.34 1.08 2.13 1.39.76.3 1.63.5 2.91.56C8.33 23.99 8.74 24 12 24s3.67-.01 4.95-.07c1.28-.06 2.15-.26 2.91-.56.79-.31 1.46-.72 2.13-1.39.67-.67 1.08-1.34 1.39-2.13.3-.76.5-1.63.56-2.91.06-1.28.07-1.69.07-4.95s-.01-3.67-.07-4.95c-.06-1.28-.26-2.15-.56-2.91-.31-.79-.72-1.46-1.39-2.13C21.31 1.34 20.64.93 19.85.62c-.76-.3-1.63-.5-2.91-.56C15.67.01 15.26 0 12 0z"/>
+                            <path d="M12 5.84a6.16 6.16 0 1 0 0 12.32 6.16 6.16 0 0 0 0-12.32zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8z"/>
+                            <circle cx="18.41" cy="5.59" r="1.44"/>
+                        </svg>
+                        <a href="https://www.instagram.com/deliciaskitchencatering/" target="_blank" rel="noreferrer" class="hover:text-gray-600 transition-colors">Instagram</a>
+                    </li>
+                    <li class="flex items-center gap-2">
                         <i data-lucide="star" class="h-4 w-4"></i>
                         <a href="https://g.page/r/CaKlMYZTVQXmEBM/review" target="_blank" rel="noreferrer" class="hover:text-gray-600 transition-colors">Leave a Google Review</a>
                     </li>
@@ -380,6 +411,8 @@
             activeTab: 'home',
             plateMain: null,
             plateSides: [],
+            plateware: '',
+            utensils: '',
             mainVariant: '',
             sideVariants: {},
             pairingWarnings: [],
@@ -545,6 +578,29 @@
             }).join('');
         }
 
+        // Serviceware is a fixed list rather than menu data — edit here to change it
+        const PLATEWARE = ['Foam', 'Hard Plastic', 'Porcelain'];
+        const UTENSILS = ['Thin Plastic', 'Thick Metallic Plastic, Wrapped in a Napkin'];
+
+        function renderServiceware() {
+            const row = (label, group, current) => `
+                <div onclick="setServiceware('${group}', ${JSON.stringify(label).replace(/"/g, '&quot;')})"
+                     class="builder-${group}-opt cursor-pointer border p-3 transition-colors ${optionClasses(label === current)}">
+                    <h4 class="font-bold uppercase tracking-wider text-xs">${label}</h4>
+                </div>`;
+            document.getElementById('builder-plateware-container').innerHTML =
+                PLATEWARE.map(o => row(o, 'plateware', state.plateware)).join('');
+            document.getElementById('builder-utensils-container').innerHTML =
+                UTENSILS.map(o => row(o, 'utensils', state.utensils)).join('');
+        }
+
+        function setServiceware(group, value) {
+            state[group] = value;
+            renderServiceware();
+            updatePlateSummary();
+            validateForm();
+        }
+
         function optionClasses(selected) {
             return selected ? 'border-black bg-black text-white' : 'border-black/20 hover:border-black text-black';
         }
@@ -580,9 +636,10 @@
 
             renderBuilderOptions();
 
-            // Enable sides section
-            const sidesSection = document.getElementById('builder-sides-section');
-            sidesSection.classList.remove('opacity-50', 'pointer-events-none');
+            // Enable the remaining steps
+            for (const id of ['builder-sides-section', 'builder-service-section']) {
+                document.getElementById(id).classList.remove('opacity-50', 'pointer-events-none');
+            }
 
             updatePlateSummary();
             checkWarnings();
@@ -686,6 +743,8 @@
 
         function updatePlateSummary() {
             document.getElementById('summary-main').innerText = state.plateMain ? withVariant(state.plateMain, state.mainVariant) : '-';
+            document.getElementById('summary-plateware').innerText = state.plateware || '-';
+            document.getElementById('summary-utensils').innerText = state.utensils || '-';
             document.getElementById('summary-sides').innerText = state.plateSides.length > 0
                 ? state.plateSides.map(s => withVariant(s, state.sideVariants[s.id])).join(', ')
                 : '-';
@@ -871,7 +930,8 @@
             const dateOk = state.tastingDate && !isDateBlocked(state.tastingDate) && state.tastingDate > todayYmd();
             const variantsOk = (!state.plateMain || !(state.plateMain.variants || []).length || state.mainVariant) &&
                 state.plateSides.every(s => !(s.variants || []).length || state.sideVariants[s.id]);
-            const isValid = state.plateMain && dateOk && name && phoneOk && platesOk && variantsOk &&
+            const isValid = state.plateMain && state.plateware && state.utensils &&
+                dateOk && name && phoneOk && platesOk && variantsOk &&
                 (state.pairingWarnings.length === 0 || state.acknowledgedWarnings);
 
             if (isValid) {
@@ -1031,7 +1091,9 @@
                     plates: parseInt(document.getElementById('contact-plates').value, 10),
                     date: state.tastingDate,
                     entree: withVariant(state.plateMain, state.mainVariant),
-                    sides: state.plateSides.map(s => withVariant(s, state.sideVariants[s.id]))
+                    sides: state.plateSides.map(s => withVariant(s, state.sideVariants[s.id])),
+                    plateware: state.plateware,
+                    utensils: state.utensils
                 });
             } catch (error) {
                 console.error("Failed to submit tasting request", error);
@@ -1049,6 +1111,8 @@
                 // Reset state
                 state.plateMain = null;
                 state.plateSides = [];
+                state.plateware = '';
+                state.utensils = '';
                 state.mainVariant = '';
                 state.sideVariants = {};
                 state.tastingDate = '';
@@ -1063,7 +1127,10 @@
                 checkWarnings();
                 resetPlateVisual();
                 renderCalendar();
-                document.getElementById('builder-sides-section').classList.add('opacity-50', 'pointer-events-none');
+                renderServiceware();
+                for (const id of ['builder-sides-section', 'builder-service-section']) {
+                    document.getElementById(id).classList.add('opacity-50', 'pointer-events-none');
+                }
 
                 btn.classList.remove('hidden');
                 successMsg.classList.add('hidden');
@@ -1077,6 +1144,7 @@
         // Initialize App (data arrives via the Firestore module script below)
         renderMenu();
         renderBuilderOptions();
+        renderServiceware();
         renderCalendar();
         renderGallery();
 
