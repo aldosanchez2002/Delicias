@@ -1075,7 +1075,10 @@
         window.saveTastingRequest = (payload) =>
             addDoc(collection(db, "tastingRequests"), {
                 ...payload,
-                status: 'new',
+                status: 'pending_contact',
+                statusUpdatedAt: serverTimestamp(),
+                // Opens the audit trail the admin page appends to on every change
+                statusLog: [{ from: '', to: 'pending_contact', at: new Date() }],
                 createdAt: serverTimestamp()
             });
 

@@ -278,7 +278,9 @@
         <!-- ======================= REQUESTS TAB ======================= -->
         <div id="section-requests" class="admin-section hidden">
             <p class="text-sm text-black/70 mb-8 max-w-2xl">
-                Tasting requests submitted from the site's plate builder, newest first.
+                Quote requests submitted from the site's plate builder, newest first. Set a status as you
+                work each one &mdash; every change is timestamped and kept in the request's history.
+                Requests are a permanent record and cannot be deleted; mark a dead lead <strong>Rejected</strong>.
             </p>
             <div id="list-requests" class="space-y-3"></div>
         </div>
@@ -328,7 +330,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
         import {
             getFirestore, collection, query, orderBy, onSnapshot,
-            addDoc, updateDoc, deleteDoc, doc, serverTimestamp
+            addDoc, updateDoc, deleteDoc, doc, serverTimestamp, arrayUnion
         } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
         const firebaseConfig = {
@@ -385,8 +387,16 @@
          *   date         string    event date, YYYY-MM-DD
          *   entree       string    dish name
          *   sides        string[]  dish names
-         *   status       string    "new" | "handled"
+         *   status       string    pending_contact | contacted | quoted | scheduled | rejected
+         *   statusUpdatedAt timestamp  server time of the most recent status change
+         *   statusLog    array     append-only audit trail, oldest first:
+         *                          { from: string, to: string, at: timestamp }
+         *                          "at" is client time — Firestore rejects
+         *                          serverTimestamp() inside array elements — while
+         *                          statusUpdatedAt above is authoritative server time.
          *   createdAt    timestamp
+         *
+         *   Requests are never deleted; Rejected is the terminal state.
          */
 
         const app = initializeApp(firebaseConfig);
@@ -779,53 +789,100 @@
         };
 
         // ======================= REQUESTS =======================
+        // Requests move through these states and are never deleted, so a rejected
+        // quote stays on the record instead of vanishing.
+        const REQUEST_STATUSES = [
+            { key: 'pending_contact', label: 'Pending Contact' },
+            { key: 'contacted', label: 'Contacted' },
+            { key: 'quoted', label: 'Quoted' },
+            { key: 'scheduled', label: 'Scheduled' },
+            { key: 'rejected', label: 'Rejected' }
+        ];
+        const DEFAULT_STATUS = 'pending_contact';
+        const openRequestLogs = new Set(); // ids whose history is expanded
+
+        // Requests saved before these statuses existed carry "new" or "handled"
+        function statusOf(r) {
+            if (r.status === 'handled') return 'scheduled';
+            if (REQUEST_STATUSES.some(s => s.key === r.status)) return r.status;
+            return DEFAULT_STATUS;
+        }
+        const statusLabel = key => (REQUEST_STATUSES.find(s => s.key === key) || {}).label || key;
+        const fmtStamp = ts => {
+            const d = ts?.toDate ? ts.toDate() : (ts instanceof Date ? ts : null);
+            return d ? d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+        };
+
         function renderRequests() {
             const container = document.getElementById('list-requests');
-            const newCount = requests.filter(r => r.status === 'new').length;
+            const pending = requests.filter(r => statusOf(r) === DEFAULT_STATUS).length;
             const countEl = document.getElementById('requests-count');
-            countEl.textContent = newCount;
-            countEl.classList.toggle('hidden', newCount === 0);
+            countEl.textContent = pending;
+            countEl.classList.toggle('hidden', pending === 0);
 
             if (!requests.length) {
-                container.innerHTML = `<p class="text-sm text-black/50 uppercase tracking-wider">No tasting requests yet.</p>`;
+                container.innerHTML = `<p class="text-sm text-black/50 uppercase tracking-wider">No quote requests yet.</p>`;
                 return;
             }
             container.innerHTML = requests.map(r => {
-                const handled = r.status === 'handled';
-                const submitted = r.createdAt?.toDate ? r.createdAt.toDate().toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+                const status = statusOf(r);
+                const isPending = status === DEFAULT_STATUS;
+                const isRejected = status === 'rejected';
+                const submitted = fmtStamp(r.createdAt);
+                const changed = fmtStamp(r.statusUpdatedAt);
+                const log = (r.statusLog || []).slice().reverse();
+                const open = openRequestLogs.has(r.id);
                 return `
-                <div class="border ${handled ? 'border-black/20 bg-gray-100 opacity-70' : 'border-black bg-white'} p-4 flex flex-col md:flex-row md:items-center gap-4">
+                <div class="border ${isRejected ? 'border-black/20 bg-gray-100 opacity-70' : isPending ? 'border-black bg-white' : 'border-black/40 bg-white'} p-4 flex flex-col md:flex-row md:items-start gap-4">
                     <div class="flex-grow">
                         <h4 class="font-bold uppercase tracking-wider">
                             Event: ${fmtDate(r.date)}
-                            <span class="ml-2 px-1.5 py-0.5 text-[10px] ${handled ? 'border border-black/40' : 'bg-black text-white'}">${handled ? 'Handled' : 'New'}</span>
+                            <span class="ml-2 px-1.5 py-0.5 text-[10px] ${isPending ? 'bg-black text-white' : 'border border-black/40'}">${escapeHtml(statusLabel(status))}</span>
                         </h4>
                         <p class="text-sm font-bold">${escapeHtml(r.name)} &bull; ${escapeHtml(r.phone)}</p>
                         <p class="text-sm text-black/70">${escapeHtml(r.entree)}${(r.sides || []).length ? ' with ' + escapeHtml(r.sides.join(', ')) : ''}${r.plates ? ` &bull; est. ${Number(r.plates)} plates` : ''}</p>
-                        ${submitted ? `<p class="text-[10px] uppercase tracking-wider text-black/50 mt-1">Submitted ${submitted}</p>` : ''}
+                        <p class="text-[10px] uppercase tracking-wider text-black/50 mt-1">
+                            ${submitted ? `Submitted ${escapeHtml(submitted)}` : ''}${changed ? ` &bull; Status changed ${escapeHtml(changed)}` : ''}
+                            ${log.length ? `<button onclick="toggleRequestLog('${r.id}')" class="ml-2 underline underline-offset-2 hover:text-black transition-colors">${open ? 'Hide history' : `History (${log.length})`}</button>` : ''}
+                        </p>
+                        ${open && log.length ? `
+                        <ul class="mt-2 border-t border-black/10 pt-2 space-y-1 text-[10px] uppercase tracking-wider text-black/60">
+                            ${log.map(e => `<li>${escapeHtml(fmtStamp(e.at))} &mdash; ${escapeHtml(e.from ? statusLabel(e.from) : 'Submitted')} &rarr; <span class="font-bold text-black">${escapeHtml(statusLabel(e.to))}</span></li>`).join('')}
+                        </ul>` : ''}
                     </div>
-                    <div class="flex items-center gap-2 flex-shrink-0">
-                        <button onclick="toggleRequest('${r.id}', ${handled ? 'false' : 'true'})" class="border border-black hover:bg-gray-100 px-3 py-2 text-xs font-bold uppercase tracking-wider transition-colors">
-                            ${handled ? 'Reopen' : 'Mark Handled'}
-                        </button>
-                        <button onclick="removeRequest('${r.id}')" class="border border-black hover:bg-black hover:text-white px-3 py-2 text-xs font-bold uppercase tracking-wider transition-colors">Delete</button>
+                    <div class="flex-shrink-0 w-full md:w-52">
+                        <label class="block text-[10px] font-bold uppercase tracking-wider mb-1">Status</label>
+                        <select onchange="setRequestStatus('${r.id}', this.value)" class="w-full border border-black p-2 text-xs font-bold uppercase tracking-wider bg-white">
+                            ${REQUEST_STATUSES.map(s => `<option value="${s.key}" ${s.key === status ? 'selected' : ''}>${s.label}</option>`).join('')}
+                        </select>
                     </div>
                 </div>`;
             }).join('');
         }
 
-        window.toggleRequest = async (id, handled) => {
-            try {
-                await updateDoc(doc(db, "tastingRequests", id), { status: handled ? 'handled' : 'new' });
-            } catch (err) { console.error(err); showStatus("Failed to update request.", true); }
+        window.toggleRequestLog = (id) => {
+            if (openRequestLogs.has(id)) openRequestLogs.delete(id); else openRequestLogs.add(id);
+            renderRequests();
         };
 
-        window.removeRequest = async (id) => {
-            if (!confirm("Delete this tasting request?")) return;
+        window.setRequestStatus = async (id, next) => {
+            const req = requests.find(r => r.id === id);
+            const from = req ? statusOf(req) : '';
+            if (from === next) return;
             try {
-                await deleteDoc(doc(db, "tastingRequests", id));
-                showStatus("Request deleted.");
-            } catch (err) { console.error(err); showStatus("Failed to delete request.", true); }
+                await updateDoc(doc(db, "tastingRequests", id), {
+                    status: next,
+                    statusUpdatedAt: serverTimestamp(),
+                    // serverTimestamp() is not allowed inside an array element, so the
+                    // log entry carries client time; statusUpdatedAt stays authoritative.
+                    statusLog: arrayUnion({ from, to: next, at: new Date() })
+                });
+                showStatus(`Marked ${statusLabel(next)}.`);
+            } catch (err) {
+                console.error(err);
+                showStatus("Failed to update request.", true);
+                renderRequests(); // put the dropdown back where it was
+            }
         };
 
         // ======================= LIVE SUBSCRIPTIONS =======================
