@@ -332,6 +332,7 @@
 
                             <div id="success-message" class="bg-black text-white p-3 text-center text-sm font-bold uppercase tracking-wider hidden">Request received — we will be in touch shortly.</div>
                             <div id="submit-error" class="bg-gray-200 border border-black text-black p-3 text-center text-xs font-bold uppercase tracking-wider hidden mb-3">Something went wrong. Please try again or call (915) 245-5707.</div>
+                            <div id="submit-missing" class="hidden mb-3 border border-black/20 bg-white p-3 text-[11px] leading-snug text-black/70"></div>
                             <button id="submit-btn" onclick="submitBooking()" disabled class="w-full py-3 font-bold uppercase tracking-widest transition-colors bg-gray-200 text-gray-400 cursor-not-allowed">
                                 Request Quote
                             </button>
@@ -910,14 +911,57 @@
             return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`;
         }
 
-        function validateForm() {
+        // Everything the request still needs, in the order the page asks for it.
+        // The button state is derived from this, so what is listed and whether the
+        // button is enabled can never disagree.
+        function missingRequirements() {
             const name = document.getElementById('contact-name').value.trim();
             const phone = document.getElementById('contact-phone').value.trim();
             const plates = parseInt(document.getElementById('contact-plates').value, 10);
+            const out = [];
+
+            if (!state.plateMain) out.push('Select an entree or taquiza');
+            else if ((state.plateMain.variants || []).length && !state.mainVariant)
+                out.push(`Choose a style for ${state.plateMain.name}`);
+
+            state.plateSides.forEach(side => {
+                if ((side.variants || []).length && !state.sideVariants[side.id])
+                    out.push(`Choose a style for ${side.name}`);
+            });
+
+            if (!state.plateware) out.push('Choose your plates');
+            if (!state.utensils) out.push('Choose your utensils');
+
+            if (!name) out.push('Enter your name');
+            if (!phone) out.push('Enter your phone number');
+            else if (!isPhoneValid(phone)) out.push('Enter a 10-digit phone number, e.g. (915) 245-5707');
+            if (!Number.isInteger(plates) || plates <= 0) out.push('Enter the estimated number of plates');
+
+            if (!state.tastingDate) out.push('Pick an event date');
+            else if (state.tastingDate <= todayYmd()) out.push('Pick an event date in the future');
+            else if (isDateBlocked(state.tastingDate)) out.push('That event date is unavailable — pick another');
+
+            if (state.pairingWarnings.length && !state.acknowledgedWarnings)
+                out.push('Confirm the pairing alert');
+
+            return out;
+        }
+
+        function renderMissing(missing) {
+            const box = document.getElementById('submit-missing');
+            if (!missing.length) { box.classList.add('hidden'); box.innerHTML = ''; return; }
+            box.classList.remove('hidden');
+            box.innerHTML = `
+                <p class="font-bold uppercase tracking-wider mb-1">Still needed</p>
+                <ul class="space-y-0.5">${missing.map(m =>
+                    `<li class="flex gap-1.5"><span class="text-black/30">&bull;</span><span>${m}</span></li>`).join('')}</ul>`;
+        }
+
+        function validateForm() {
+            const phone = document.getElementById('contact-phone').value.trim();
             const btn = document.getElementById('submit-btn');
 
-            const phoneOk = isPhoneValid(phone);
-            const phoneBad = !phoneOk && !!phone;
+            const phoneBad = !isPhoneValid(phone) && !!phone;
             const phoneInput = document.getElementById('contact-phone');
             document.getElementById('phone-error').classList.toggle('hidden', !phoneBad);
             phoneInput.classList.toggle('border-red-600', phoneBad);
@@ -926,13 +970,9 @@
             phoneInput.classList.toggle('border-black', !phoneBad);
             phoneInput.classList.toggle('focus:ring-black', !phoneBad);
 
-            const platesOk = Number.isInteger(plates) && plates > 0;
-            const dateOk = state.tastingDate && !isDateBlocked(state.tastingDate) && state.tastingDate > todayYmd();
-            const variantsOk = (!state.plateMain || !(state.plateMain.variants || []).length || state.mainVariant) &&
-                state.plateSides.every(s => !(s.variants || []).length || state.sideVariants[s.id]);
-            const isValid = state.plateMain && state.plateware && state.utensils &&
-                dateOk && name && phoneOk && platesOk && variantsOk &&
-                (state.pairingWarnings.length === 0 || state.acknowledgedWarnings);
+            const missing = missingRequirements();
+            renderMissing(missing);
+            const isValid = missing.length === 0;
 
             if (isValid) {
                 btn.disabled = false;
@@ -1147,6 +1187,7 @@
         renderServiceware();
         renderCalendar();
         renderGallery();
+        validateForm();  // so the checklist is there before anything is touched
 
     </script>
 
