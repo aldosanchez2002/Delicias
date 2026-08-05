@@ -171,6 +171,9 @@
         <div id="view-menu" class="view-section fade-in py-10 md:py-24 max-w-4xl mx-auto px-4">
              <div class="text-center mb-8 md:mb-12">
                 <h1 class="text-6xl md:text-8xl font-bold text-black mb-2 uppercase tracking-widest">Menu</h1>
+                <button onclick="switchTab('builder')" class="mt-4 bg-black hover:bg-gray-800 text-white px-8 py-3 text-xs font-bold uppercase tracking-widest transition-colors">
+                    Request a Quote
+                </button>
             </div>
             <div class="space-y-10 md:space-y-16" id="menu-container">
                 <!-- Menu items populated by JS -->
@@ -283,7 +286,7 @@
                             <div class="mb-6 border-t border-black/20 pt-4 space-y-3">
                                 <label class="block text-sm font-bold uppercase tracking-wider">Contact Details:</label>
                                 <input type="text" id="contact-name" oninput="validateForm()" placeholder="Full name" class="w-full border border-black p-2 text-sm bg-white outline-none focus:ring-1 focus:ring-black">
-                                <input type="tel" id="contact-phone" oninput="validateForm()" placeholder="Phone, e.g. (915) 555-0199" class="w-full border border-black p-2 text-sm bg-white outline-none focus:ring-1 focus:ring-black">
+                                <input type="tel" id="contact-phone" oninput="validateForm()" placeholder="Phone, e.g. (915) 245-5707" class="w-full border border-black p-2 text-sm bg-white outline-none focus:ring-1 focus:ring-black">
                                 <p id="phone-error" class="text-[10px] uppercase tracking-wider text-red-600 font-bold hidden">Please enter a valid 10-digit phone number.</p>
                                 <input type="number" id="contact-plates" min="1" step="1" oninput="validateForm()" placeholder="Estimated # of plates" class="w-full border border-black p-2 text-sm bg-white outline-none focus:ring-1 focus:ring-black">
                             </div>
@@ -306,7 +309,7 @@
                             </div>
 
                             <div id="success-message" class="bg-black text-white p-3 text-center text-sm font-bold uppercase tracking-wider hidden">Request received — we will be in touch shortly.</div>
-                            <div id="submit-error" class="bg-gray-200 border border-black text-black p-3 text-center text-xs font-bold uppercase tracking-wider hidden mb-3">Something went wrong. Please try again or call (915) 555-0199.</div>
+                            <div id="submit-error" class="bg-gray-200 border border-black text-black p-3 text-center text-xs font-bold uppercase tracking-wider hidden mb-3">Something went wrong. Please try again or call (915) 245-5707.</div>
                             <button id="submit-btn" onclick="submitBooking()" disabled class="w-full py-3 font-bold uppercase tracking-widest transition-colors bg-gray-200 text-gray-400 cursor-not-allowed">
                                 Request Quote
                             </button>
@@ -334,10 +337,13 @@
             <div>
                 <h4 class="font-bold mb-4 uppercase text-xs tracking-widest">Contact</h4>
                 <ul class="space-y-2 text-sm font-medium">
-                    <li class="flex items-center gap-2"><i data-lucide="phone" class="h-4 w-4"></i> (915) 555-0199</li>
-                    <li class="flex items-center gap-2"><i data-lucide="mail" class="h-4 w-4"></i> info@deliciaskitchen.com</li>
+                    <li class="flex items-center gap-2"><i data-lucide="phone" class="h-4 w-4"></i> <a href="tel:+19152455707" class="hover:text-gray-600 transition-colors">(915) 245-5707</a></li>
+                    <li class="flex items-center gap-2"><i data-lucide="mail" class="h-4 w-4"></i> <a href="mailto:deliciaskitchencatering@gmail.com" class="hover:text-gray-600 transition-colors break-all">deliciaskitchencatering@gmail.com</a></li>
                     <li class="flex items-center gap-2 mt-4 pt-4 border-t border-gray-200">
-                        <i data-lucide="facebook" class="h-4 w-4"></i>
+                        <!-- Inlined: lucide dropped brand icons, so data-lucide="facebook" renders nothing -->
+                        <svg viewBox="0 0 24 24" fill="currentColor" class="h-4 w-4 shrink-0" aria-hidden="true">
+                            <path d="M22 12a10 10 0 1 0-11.56 9.88v-6.99H7.9V12h2.54V9.8c0-2.51 1.5-3.9 3.77-3.9 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56V12h2.78l-.45 2.89h-2.33v6.99A10 10 0 0 0 22 12z"/>
+                        </svg>
                         <a href="https://www.facebook.com/p/Delicias-Kitchen-Catering-100083303952713/" target="_blank" rel="noreferrer" class="hover:text-gray-600 transition-colors">Facebook</a>
                     </li>
                     <li class="flex items-center gap-2">
@@ -349,8 +355,7 @@
             <div>
                 <h4 class="font-bold mb-4 uppercase text-xs tracking-widest">Hours</h4>
                 <ul class="space-y-2 text-sm font-medium">
-                    <li>Mon &ndash; Fri: 9 AM &ndash; 6 PM</li>
-                    <li>Events: Seven Days a Week</li>
+                    <li>Open 24/7</li>
                 </ul>
             </div>
         </div>
@@ -463,12 +468,15 @@
 
             if (!menuData.items.length) {
                 container.innerHTML = menuLoadFailed
-                    ? `<p class="text-center font-bold uppercase tracking-widest text-black/60">Our menu is temporarily unavailable.<br class="mb-2">Please call us at (915) 555-0199.</p>`
+                    ? `<p class="text-center font-bold uppercase tracking-widest text-black/60">Our menu is temporarily unavailable.<br class="mb-2">Please call us at (915) 245-5707.</p>`
                     : `<p class="text-center font-bold uppercase tracking-widest text-black/40 animate-pulse">Loading menu&hellip;</p>`;
                 return;
             }
 
             const sections = [];
+
+            const apps = menuSubsection('', ofType('appetizer'));
+            if (apps) sections.push({ title: 'Appetizers', note: '', body: apps });
 
             const dinners = menuSubsection('Entrees', ofType('entree')) +
                             menuSubsection('Sides', ofType('side')) +
@@ -486,9 +494,6 @@
                 body: brunch
             });
 
-            const apps = menuSubsection('', ofType('appetizer'));
-            if (apps) sections.push({ title: 'Appetizers', note: '', body: apps });
-
             container.innerHTML = sections.map(s => `
                 <section>
                     <h2 class="text-3xl md:text-4xl font-bold text-white bg-black px-4 py-3 mb-3 uppercase tracking-widest">${s.title}</h2>
@@ -505,7 +510,7 @@
 
             if (!mains.length) {
                 const placeholder = menuLoadFailed
-                    ? `<p class="text-sm font-bold uppercase tracking-wider text-black/60 sm:col-span-2">Menu unavailable — please call (915) 555-0199.</p>`
+                    ? `<p class="text-sm font-bold uppercase tracking-wider text-black/60 sm:col-span-2">Menu unavailable — please call (915) 245-5707.</p>`
                     : `<p class="text-sm font-bold uppercase tracking-wider text-black/40 animate-pulse sm:col-span-2">Loading&hellip;</p>`;
                 mainsContainer.innerHTML = placeholder;
                 document.getElementById('builder-sides-container').innerHTML = '';
